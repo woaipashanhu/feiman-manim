@@ -38,30 +38,27 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        // 不缓存视频相关的请求（.m3u8, .ts 等由浏览器媒体缓存处理）
         navigateFallback: null,
         runtimeCaching: [
           {
-            // 封面图缓存
+            // 封面图永久缓存
             urlPattern: /^https:\/\/.*\.aliyuncs\.com\/.*\.(png|jpg|jpeg|webp)/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'cover-images',
               expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30天
+                maxEntries: 200,
               },
             },
           },
           {
-            // 阿里云播放器相关资源缓存
+            // 阿里云播放器资源永久缓存
             urlPattern: /^https:\/\/.*\.aliyuncs\.com\/.*\.(js|css|woff2)/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'player-assets',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
               },
             },
           },
