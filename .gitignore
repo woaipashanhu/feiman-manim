@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.*
+!.env.example
+.web-builder/plan.md
+cache
+.parcel-cache
+vite.config.ts.timestamp*
+vite.config.*.timestamp*
