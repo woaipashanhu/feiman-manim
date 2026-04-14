@@ -1,7 +1,20 @@
+import { useState } from 'react';
 import { grades } from '../data/videos';
 import GradeSection from '../components/GradeSection';
 
 export default function Home() {
+  const [updating, setUpdating] = useState(false);
+
+  const checkUpdate = async () => {
+    setUpdating(true);
+    try {
+      await (window as any).__checkForUpdate();
+    } finally {
+      // 如果页面没自动刷新，2秒后恢复按钮状态
+      setTimeout(() => setUpdating(false), 2000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-mesh pb-12">
       {/* 顶部导航栏 */}
@@ -46,16 +59,24 @@ export default function Home() {
         </p>
       </footer>
     
-      {/* 右下角刷新按钮 */}
+      {/* 右下角检查更新按钮 */}
       <button
-        onClick={() => window.location.reload()}
-        title="刷新"
-        className="fixed bottom-6 right-6 z-40 w-10 h-10 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-sm text-white/30 hover:text-white/80 hover:bg-white/10 active:scale-90 transition-all focus:outline-none"
+        onClick={checkUpdate}
+        disabled={updating}
+        title="检查更新"
+        className="fixed bottom-6 right-6 z-40 w-10 h-10 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-sm text-white/30 hover:text-white/80 hover:bg-white/10 active:scale-90 transition-all focus:outline-none disabled:opacity-50"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 4v6h6"/>
-          <path d="M3.51 15a9 9 0 105.64-11.36L1 10"/>
-        </svg>
+        {updating ? (
+          <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 4v6h6"/>
+            <path d="M3.51 15a9 9 0 105.64-11.36L1 10"/>
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 4v6h6"/>
+            <path d="M3.51 15a9 9 0 105.64-11.36L1 10"/>
+          </svg>
+        )}
       </button>
 </div>
   );
