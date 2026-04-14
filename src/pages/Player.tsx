@@ -11,6 +11,9 @@ declare global {
   }
 }
 
+// 本地播放器资源路径
+const ALIPLAYER_BASE = '/feiman-manim/aliplayer';
+
 /** 带重试的 fetch */
 async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<Response> {
   for (let i = 0; i <= retries; i++) {
@@ -24,6 +27,44 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<R
     if (i < retries) await new Promise(r => setTimeout(r, delay * (i + 1)));
   }
   throw new Error('请求失败');
+}
+
+/** 加载本地播放器资源 */
+function loadPlayerAssets(): Promise<void> {
+  if (window.Aliplayer) return Promise.resolve();
+
+  const loadScript = (src: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+      // 避免重复加载
+      if (document.querySelector(`script[src="${src}"]`)) {
+        resolve();
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error(`加载播放器失败: ${src}`));
+      document.head.appendChild(s);
+    });
+
+  const loadCSS = (href: string): Promise<void> =>
+    new Promise((resolve) => {
+      if (document.querySelector(`link[href="${href}"]`)) {
+        resolve();
+        return;
+      }
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.onload = () => resolve();
+      link.onerror = () => resolve(); // CSS 加载失败不阻塞
+      document.head.appendChild(link);
+    });
+
+  return Promise.all([
+    loadCSS(`${ALIPLAYER_BASE}/skins/default/aliplayer-min.css`),
+    loadScript(`${ALIPLAYER_BASE}/aliplayer-min.js`),
+  ]).then(() => {});
 }
 
 export default function Player() {
@@ -42,34 +83,6 @@ export default function Player() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [retries, setRetries] = useState(0);
-
-  // 加载阿里云播放器 JS/CSS
-  useEffect(() => {
-    if (window.Aliplayer) return;
-
-    const loadScript = (src: string): Promise<void> =>
-      new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error(`Failed to load ${src}`));
-        document.head.appendChild(s);
-      });
-
-    const loadCSS = (href: string): Promise<void> =>
-      new Promise((resolve) => {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = href;
-        link.onload = () => resolve();
-        document.head.appendChild(link);
-      });
-
-    Promise.all([
-      loadCSS('https://g.alicdn.com/de/prismplayer/2.16.3/skins/default/aliplayer-min.css'),
-      loadScript('https://g.alicdn.com/de/prismplayer/2.16.3/aliplayer-min.js'),
-    ]).catch((e) => console.error('阿里云播放器加载失败:', e));
-  }, []);
 
   // 获取 playauth 并初始化播放器
   useEffect(() => {
@@ -93,7 +106,11 @@ export default function Player() {
       setError(null);
 
       try {
-        // 从后端获取 playauth（带重试）
+        // 1. 加载本地播放器资源（从 GitHub Pages 本地加载，不再依赖外部 CDN）
+        await loadPlayerAssets();
+        if (cancelled) return;
+
+        // 2. 从后端获取 playauth（带重试）
         const resp = await fetchWithRetry(
           `${PLAYAUTH_API}?videoId=${encodeURIComponent(video.videoId)}`
         );
@@ -105,19 +122,9 @@ export default function Player() {
 
         if (cancelled) return;
 
-        // 等待阿里云播放器加载
-        let waitCount = 0;
-        while (!window.Aliplayer && waitCount < 50) {
-          await new Promise((r) => setTimeout(r, 100));
-          waitCount++;
-        }
-        if (!window.Aliplayer) {
-          throw new Error('播放器加载超时，请刷新页面重试');
-        }
-
         if (cancelled || !playerContainerRef.current) return;
 
-        // 初始化阿里云播放器
+        // 3. 初始化阿里云播放器
         playerRef.current = new window.Aliplayer({
           id: playerContainerRef.current.id,
           vid: video.videoId,
@@ -182,7 +189,7 @@ export default function Player() {
                 playerContainerRef.current.innerHTML = '';
                 initPlayer();
               }
-            }, 2000 * count); // 递增延迟
+            }, 2000 * count);
           } else {
             setError('视频播放失败，请检查网络后刷新');
             setLoading(false);
