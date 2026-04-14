@@ -11,6 +11,21 @@ declare global {
   }
 }
 
+/** 带重试的 fetch */
+async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const resp = await fetch(url);
+      if (resp.ok) return resp;
+      if (i === retries) return resp;
+    } catch {
+      if (i === retries) throw new Error('网络请求失败，请检查网络');
+    }
+    if (i < retries) await new Promise(r => setTimeout(r, delay * (i + 1)));
+  }
+  throw new Error('请求失败');
+}
+
 export default function Player() {
   const { gradeId = '', videoIndex = '0' } = useParams();
   const navigate = useNavigate();
@@ -20,15 +35,16 @@ export default function Player() {
 
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  const retryCountRef = useRef(0);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const [swipeAnim, setSwipeAnim] = useState<SwipeDirection>('none');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retries, setRetries] = useState(0);
 
   // 加载阿里云播放器 JS/CSS
   useEffect(() => {
-    // 检查是否已加载
     if (window.Aliplayer) return;
 
     const loadScript = (src: string): Promise<void> =>
@@ -50,8 +66,8 @@ export default function Player() {
       });
 
     Promise.all([
-      loadCSS('https://g.alicdn.com/de/prismplayer/2.15.2/skins/default/aliplayer-min.css'),
-      loadScript('https://g.alicdn.com/de/prismplayer/2.15.2/aliplayer-min.js'),
+      loadCSS('https://g.alicdn.com/de/prismplayer/2.16.3/skins/default/aliplayer-min.css'),
+      loadScript('https://g.alicdn.com/de/prismplayer/2.16.3/aliplayer-min.js'),
     ]).catch((e) => console.error('阿里云播放器加载失败:', e));
   }, []);
 
@@ -77,8 +93,8 @@ export default function Player() {
       setError(null);
 
       try {
-        // 从后端获取 playauth
-        const resp = await fetch(
+        // 从后端获取 playauth（带重试）
+        const resp = await fetchWithRetry(
           `${PLAYAUTH_API}?videoId=${encodeURIComponent(video.videoId)}`
         );
         if (!resp.ok) {
@@ -114,6 +130,7 @@ export default function Player() {
           preload: true,
           controlBarVisibility: 'hover',
           useH5Prism: true,
+          timeout: 15000,
           skinLayout: [
             { name: 'bigPlayButton', align: 'blabs', x: 30, y: 80 },
             { name: 'H5Loading', align: 'cc' },
@@ -140,14 +157,33 @@ export default function Player() {
 
         // 播放器事件
         playerRef.current.on('ready', () => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) { setLoading(false); retryCountRef.current = 0; setRetries(0); }
         });
         playerRef.current.on('playing', () => {
-          if (!cancelled) { setLoading(false); setError(null); }
+          if (!cancelled) { setLoading(false); setError(null); retryCountRef.current = 0; setRetries(0); }
         });
         playerRef.current.on('error', (e: any) => {
           console.error('播放器错误:', e);
-          if (!cancelled) {
+          if (cancelled) return;
+
+          // 自动重试，最多3次
+          if (retryCountRef.current < 3) {
+            retryCountRef.current++;
+            const count = retryCountRef.current;
+            setRetries(count);
+            console.log(`播放器错误，自动重试 (${count}/3)...`);
+
+            // 销毁当前播放器并重新初始化
+            try { playerRef.current?.dispose(); } catch (_) {}
+            playerRef.current = null;
+
+            setTimeout(() => {
+              if (!cancelled && playerContainerRef.current) {
+                playerContainerRef.current.innerHTML = '';
+                initPlayer();
+              }
+            }, 2000 * count); // 递增延迟
+          } else {
             setError('视频播放失败，请检查网络后刷新');
             setLoading(false);
           }
@@ -246,12 +282,14 @@ export default function Player() {
         className="w-screen h-screen bg-black"
       />
 
-      {/* 加载中（播放器自带 loading，这里作为后备） */}
+      {/* 加载中 */}
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-            <p className="text-white/50 text-sm">加载中...</p>
+            <p className="text-white/50 text-sm">
+              {retries > 0 ? `加载中（重试 ${retries}/3）...` : '加载中...'}
+            </p>
           </div>
         </div>
       )}
