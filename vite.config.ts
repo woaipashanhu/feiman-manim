@@ -41,25 +41,19 @@ export default defineConfig({
         navigateFallback: null,
         runtimeCaching: [
           {
-            // 封面图永久缓存
+            // 封面图永久缓存，无上限
             urlPattern: /^https:\/\/.*\.aliyuncs\.com\/.*\.(png|jpg|jpeg|webp)/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'cover-images',
-              expiration: {
-                maxEntries: 200,
-              },
             },
           },
           {
-            // 阿里云播放器资源永久缓存
+            // 阿里云播放器资源永久缓存，无上限
             urlPattern: /^https:\/\/.*\.aliyuncs\.com\/.*\.(js|css|woff2)/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'player-assets',
-              expiration: {
-                maxEntries: 50,
-              },
             },
           },
         ],
