@@ -38,10 +38,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallback: null,
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
-            // 封面图永久缓存，无上限
             urlPattern: /^https:\/\/.*\.aliyuncs\.com\/.*\.(png|jpg|jpeg|webp)/i,
             handler: 'CacheFirst',
             options: {
@@ -49,7 +48,6 @@ export default defineConfig({
             },
           },
           {
-            // 阿里云播放器资源永久缓存，无上限
             urlPattern: /^https:\/\/.*\.aliyuncs\.com\/.*\.(js|css|woff2)/i,
             handler: 'CacheFirst',
             options: {
