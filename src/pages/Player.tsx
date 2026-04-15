@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getVideo, PLAYAUTH_API } from '../data/videos';
+import videoOssUrls from '../data/video-oss-urls.json';
 
 type SwipeDirection = 'none' | 'left' | 'right';
 
@@ -9,124 +10,58 @@ declare global {
 }
 
 const ALIPLAYER_BASE = '/feiman-manim/aliplayer';
+const VIDEO_CACHE_NAME = 'cached-videos';
 
-// ====== 视频缓存查找 ======
+// ====== 视频缓存：用带签名的 URL 下载并存入 Cache Storage ======
 
-const VIDEO_URL_MAP_KEY = 'video-url-map';
-
-/** 保存 videoId → mp4 URL 映射（前端拦截或主动查询时写入） */
-function saveVideoUrl(videoId: string, url: string) {
-  try {
-    const map: Record<string, string> = JSON.parse(localStorage.getItem(VIDEO_URL_MAP_KEY) || '{}');
-    if (map[videoId] !== url) {
-      map[videoId] = url;
-      localStorage.setItem(VIDEO_URL_MAP_KEY, JSON.stringify(map));
-      console.log(`[视频缓存] 保存映射 ${videoId} → ${url}`);
-    }
-  } catch { /* ignore */ }
-}
-
-/** 读取 videoId 对应的缓存 URL */
-function getVideoUrl(videoId: string): string | null {
-  try {
-    const map: Record<string, string> = JSON.parse(localStorage.getItem(VIDEO_URL_MAP_KEY) || '{}');
-    return map[videoId] || null;
-  } catch { return null; }
-}
-
-/**
- * 在所有 SW 缓存中查找视频
- * 遍历 precache + runtime caches，匹配 videoId 对应的 mp4
- */
-async function findCachedVideo(videoId: string): Promise<string | null> {
-  if (!('caches' in window)) return null;
-
-  const allCaches = await caches.keys();
-  for (const cacheName of allCaches) {
-    try {
-      const cache = await caches.open(cacheName);
-      const requests = await cache.keys();
-      for (const req of requests) {
-        const url = req.url;
-        // 匹配 mp4 文件，且检查 URL 中是否包含 videoId 或 URL 映射
-        if (/\.mp4(\?|$)/i.test(url)) {
-          // 方法1: 直接在 URL 中找 videoId（OSS 路径可能不含 videoId）
-          if (url.includes(videoId)) return cleanUrl(url);
-        }
-      }
-    } catch { /* ignore */ }
-  }
-
-  // 方法2: 从 localStorage 的 URL 映射查找
-  const savedUrl = getVideoUrl(videoId);
-  if (savedUrl) {
-    // 在所有缓存中查找这个 URL（忽略签名参数）
-    for (const cacheName of allCaches) {
-      try {
-        const cache = await caches.open(cacheName);
-        const requests = await cache.keys();
-        for (const req of requests) {
-          const clean = cleanUrl(req.url);
-          if (clean === savedUrl) return clean;
-          // 也匹配路径部分（因为 precache key 可能带 __WB_REVISION__）
-          try {
-            const cachedPath = new URL(req.url).pathname;
-            const savedPath = new URL(savedUrl, window.location.origin).pathname;
-            if (cachedPath === savedPath) return clean;
-          } catch { /* ignore */ }
-        }
-      } catch { /* ignore */ }
+/** 通过 Performance API 找到播放器实际请求的 mp4 URL（带签名） */
+function findMp4UrlFromPerformance(): string | null {
+  const entries = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    if (e.name.includes('.mp4') && e.transferSize > 0) {
+      return e.name;
     }
   }
-
   return null;
 }
 
-/** 去掉 URL 查询参数，返回纯路径 */
-function cleanUrl(url: string): string {
+/** 把带签名的 mp4 URL 下载并存入缓存（key 用纯路径） */
+async function downloadAndCacheVideo(signedUrl: string, videoId: string): Promise<void> {
+  const ossUrl = (videoOssUrls as Record<string, string>)[videoId];
+  if (!ossUrl) return;
+
+  // 检查已缓存则跳过
   try {
-    const u = new URL(url);
-    return u.origin + u.pathname;
-  } catch { return url.split('?')[0]; }
+    const cache = await caches.open(VIDEO_CACHE_NAME);
+    if (await cache.match(ossUrl)) return;
+  } catch { /* ignore */ }
+
+  try {
+    // fetch 带签名的完整 URL
+    const resp = await fetch(signedUrl);
+    if (!resp.ok) return;
+
+    // 存入缓存，key 用不带签名的纯路径
+    const cache = await caches.open(VIDEO_CACHE_NAME);
+    await cache.put(ossUrl, resp);
+    console.log('[视频缓存] 成功:', videoId);
+  } catch (e) {
+    console.log('[视频缓存] 失败:', videoId, e);
+  }
 }
 
-// ====== 请求拦截：捕获播放器请求的 mp4 URL ======
+/** 从缓存中查找视频 */
+async function getCachedVideoUrl(videoId: string): Promise<string | null> {
+  const ossUrl = (videoOssUrls as Record<string, string>)[videoId];
+  if (!ossUrl) return null;
 
-function setupInterceptors(videoId: string): () => void {
-  const originalFetch = window.fetch;
+  try {
+    const cache = await caches.open(VIDEO_CACHE_NAME);
+    if (await cache.match(ossUrl)) return ossUrl;
+  } catch { /* ignore */ }
 
-  const patchedFetch: typeof window.fetch = async (input, init) => {
-    try {
-      const response = await originalFetch.call(window, input, init);
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      if (/\.mp4(\?|$)/i.test(url)) {
-        saveVideoUrl(videoId, cleanUrl(url));
-      }
-      return response;
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const originalOpen: any = XMLHttpRequest.prototype.open;
-  const patchedOpen = function (this: XMLHttpRequest, method: string, url: string | URL, ...rest: any[]) {
-    const urlStr = typeof url === 'string' ? url : url.href;
-    if (/\.mp4(\?|$)/i.test(urlStr)) {
-      saveVideoUrl(videoId, cleanUrl(urlStr));
-    }
-    return originalOpen.call(this, method, url, ...rest);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any).fetch = patchedFetch;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (XMLHttpRequest as any).prototype.open = patchedOpen;
-
-  return () => {
-    (window as any).fetch = originalFetch;
-    (XMLHttpRequest as any).prototype.open = originalOpen;
-  };
+  return null;
 }
 
 // ====== 播放器资源加载 ======
@@ -206,7 +141,6 @@ export default function Player() {
   const [retries, setRetries] = useState(0);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-  // 监听网络状态
   useEffect(() => {
     const goOffline = () => setIsOffline(true);
     const goOnline = () => setIsOffline(false);
@@ -218,11 +152,9 @@ export default function Player() {
     };
   }, []);
 
-  // 初始化播放器
   useEffect(() => {
     if (!video) return;
 
-    // 清理旧播放器
     if (playerRef.current) { try { playerRef.current.dispose(); } catch (_) {} playerRef.current = null; }
     if (playerContainerRef.current) playerContainerRef.current.innerHTML = '';
 
@@ -235,11 +167,10 @@ export default function Player() {
       setLoadingState(true);
       setErrorState(null);
 
-      // 先检查离线状态，如果有缓存直接用原生播放器
+      // ===== 离线：从缓存播放 =====
       if (!navigator.onLine) {
-        const cachedUrl = await findCachedVideo(video.videoId);
+        const cachedUrl = await getCachedVideoUrl(video.videoId);
         if (cachedUrl) {
-          console.log('[离线模式] 找到缓存:', cachedUrl);
           if (playerContainerRef.current && !cancelled) {
             createNativePlayer(playerContainerRef.current, cachedUrl, {
               onLoad: () => { setLoadingState(false); setErrorState(null); },
@@ -248,33 +179,25 @@ export default function Player() {
           }
           return;
         }
-        // 没有缓存，显示错误
         setErrorState('离线状态，该视频尚未缓存。请联网后先播放一次。');
         setLoadingState(false);
         return;
       }
 
-      // ===== 在线模式 =====
+      // ===== 在线：用阿里云播放器播放 =====
       try {
-        // 1. 加载播放器资源
         await loadPlayerAssets();
         if (cancelled) return;
 
-        // 2. 挂载拦截器，捕获播放器请求的 mp4 URL
-        const unhook = setupInterceptors(video.videoId);
-
-        // 3. 获取 playauth
         const resp = await fetch(
           `${PLAYAUTH_API}?videoId=${encodeURIComponent(video.videoId)}`,
           { signal: AbortSignal.timeout(10000) }
         );
-
         if (!resp.ok) throw new Error(`获取播放凭证失败: ${resp.status}`);
         const { playAuth } = await resp.json();
         if (!playAuth) throw new Error('播放凭证为空');
         if (cancelled) return;
 
-        // 4. 初始化阿里云播放器
         if (!playerContainerRef.current || cancelled) return;
 
         playerRef.current = new window.Aliplayer({
@@ -319,7 +242,6 @@ export default function Player() {
         });
         playerRef.current.on('error', () => {
           if (cancelled) return;
-          unhook();
           if (retryCountRef.current < 3) {
             retryCountRef.current++;
             const count = retryCountRef.current;
@@ -337,6 +259,18 @@ export default function Player() {
             setLoadingState(false);
           }
         });
+
+        // 播放成功后，用 Performance API 找到 mp4 URL，后台下载缓存
+        playerRef.current.on('playing', () => {
+          if (cancelled) return;
+          // 等一小段时间确保 Performance 日志已记录
+          setTimeout(() => {
+            const mp4Url = findMp4UrlFromPerformance();
+            if (mp4Url) {
+              downloadAndCacheVideo(mp4Url, video.videoId).catch(() => {});
+            }
+          }, 2000);
+        });
       } catch (e: any) {
         if (cancelled) return;
         setErrorState(e.message || '加载失败，请刷新页面');
@@ -352,7 +286,6 @@ export default function Player() {
     };
   }, [video?.videoId]);
 
-  // 键盘快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') navigate('/');
