@@ -1,77 +1,45 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getVideo, PLAYAUTH_API } from '../data/videos';
-import videoOssUrls from '../data/video-oss-urls.json';
 
 type SwipeDirection = 'none' | 'left' | 'right';
 
+// 阿里云播放器类型声明
 declare global {
-  interface Window { Aliplayer: any }
+  interface Window {
+    Aliplayer: any;
+  }
 }
 
+// 本地播放器资源路径
 const ALIPLAYER_BASE = '/feiman-manim/aliplayer';
-const VIDEO_CACHE_NAME = 'cached-videos';
 
-// ====== 视频缓存：用带签名的 URL 下载并存入 Cache Storage ======
-
-/** 通过 Performance API 找到播放器实际请求的 mp4 URL（带签名） */
-function findMp4UrlFromPerformance(): string | null {
-  const entries = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const e = entries[i];
-    if (e.name.includes('.mp4') && e.transferSize > 0) {
-      return e.name;
+/** 带重试的 fetch */
+async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const resp = await fetch(url);
+      if (resp.ok) return resp;
+      if (i === retries) return resp;
+    } catch {
+      if (i === retries) throw new Error('网络请求失败，请检查网络');
     }
+    if (i < retries) await new Promise(r => setTimeout(r, delay * (i + 1)));
   }
-  return null;
+  throw new Error('请求失败');
 }
 
-/** 把带签名的 mp4 URL 下载并存入缓存（key 用纯路径） */
-async function downloadAndCacheVideo(signedUrl: string, videoId: string): Promise<void> {
-  const ossUrl = (videoOssUrls as Record<string, string>)[videoId];
-  if (!ossUrl) return;
-
-  // 检查已缓存则跳过
-  try {
-    const cache = await caches.open(VIDEO_CACHE_NAME);
-    if (await cache.match(ossUrl)) return;
-  } catch { /* ignore */ }
-
-  try {
-    // fetch 带签名的完整 URL
-    const resp = await fetch(signedUrl);
-    if (!resp.ok) return;
-
-    // 存入缓存，key 用不带签名的纯路径
-    const cache = await caches.open(VIDEO_CACHE_NAME);
-    await cache.put(ossUrl, resp);
-    console.log('[视频缓存] 成功:', videoId);
-  } catch (e) {
-    console.log('[视频缓存] 失败:', videoId, e);
-  }
-}
-
-/** 从缓存中查找视频 */
-async function getCachedVideoUrl(videoId: string): Promise<string | null> {
-  const ossUrl = (videoOssUrls as Record<string, string>)[videoId];
-  if (!ossUrl) return null;
-
-  try {
-    const cache = await caches.open(VIDEO_CACHE_NAME);
-    if (await cache.match(ossUrl)) return ossUrl;
-  } catch { /* ignore */ }
-
-  return null;
-}
-
-// ====== 播放器资源加载 ======
-
+/** 加载本地播放器资源 */
 function loadPlayerAssets(): Promise<void> {
   if (window.Aliplayer) return Promise.resolve();
 
   const loadScript = (src: string): Promise<void> =>
     new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      // 避免重复加载
+      if (document.querySelector(`script[src="${src}"]`)) {
+        resolve();
+        return;
+      }
       const s = document.createElement('script');
       s.src = src;
       s.onload = () => resolve();
@@ -81,12 +49,15 @@ function loadPlayerAssets(): Promise<void> {
 
   const loadCSS = (href: string): Promise<void> =>
     new Promise((resolve) => {
-      if (document.querySelector(`link[href="${href}"]`)) { resolve(); return; }
+      if (document.querySelector(`link[href="${href}"]`)) {
+        resolve();
+        return;
+      }
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = href;
       link.onload = () => resolve();
-      link.onerror = () => resolve();
+      link.onerror = () => resolve(); // CSS 加载失败不阻塞
       document.head.appendChild(link);
     });
 
@@ -95,33 +66,6 @@ function loadPlayerAssets(): Promise<void> {
     loadScript(`${ALIPLAYER_BASE}/aliplayer-min.js`),
   ]).then(() => {});
 }
-
-// ====== 原生离线视频播放器 ======
-
-function createNativePlayer(
-  container: HTMLDivElement,
-  url: string,
-  callbacks: { onLoad: () => void; onError: (msg: string) => void }
-) {
-  container.innerHTML = '';
-  const videoEl = document.createElement('video');
-  videoEl.src = url;
-  videoEl.controls = true;
-  videoEl.autoplay = true;
-  videoEl.playsInline = true;
-  videoEl.style.width = '100%';
-  videoEl.style.height = '100%';
-  videoEl.style.objectFit = 'contain';
-  videoEl.style.backgroundColor = '#000';
-
-  videoEl.addEventListener('canplay', () => callbacks.onLoad());
-  videoEl.addEventListener('playing', () => callbacks.onLoad());
-  videoEl.addEventListener('error', () => callbacks.onError('缓存播放失败，请联网后重试'));
-  container.appendChild(videoEl);
-  return videoEl;
-}
-
-// ====== 主组件 ======
 
 export default function Player() {
   const { gradeId = '', videoIndex = '0' } = useParams();
@@ -139,67 +83,48 @@ export default function Player() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [retries, setRetries] = useState(0);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-  useEffect(() => {
-    const goOffline = () => setIsOffline(true);
-    const goOnline = () => setIsOffline(false);
-    window.addEventListener('offline', goOffline);
-    window.addEventListener('online', goOnline);
-    return () => {
-      window.removeEventListener('offline', goOffline);
-      window.removeEventListener('online', goOnline);
-    };
-  }, []);
-
+  // 获取 playauth 并初始化播放器
   useEffect(() => {
     if (!video) return;
 
-    if (playerRef.current) { try { playerRef.current.dispose(); } catch (_) {} playerRef.current = null; }
-    if (playerContainerRef.current) playerContainerRef.current.innerHTML = '';
+    // 销毁旧播放器
+    if (playerRef.current) {
+      try { playerRef.current.dispose(); } catch (_) {}
+      playerRef.current = null;
+    }
+
+    // 清空容器
+    if (playerContainerRef.current) {
+      playerContainerRef.current.innerHTML = '';
+    }
 
     let cancelled = false;
 
-    const setLoadingState = (v: boolean) => { if (!cancelled) setLoading(v); };
-    const setErrorState = (v: string | null) => { if (!cancelled) setError(v); };
-
     const initPlayer = async () => {
-      setLoadingState(true);
-      setErrorState(null);
+      setLoading(true);
+      setError(null);
 
-      // ===== 离线：从缓存播放 =====
-      if (!navigator.onLine) {
-        const cachedUrl = await getCachedVideoUrl(video.videoId);
-        if (cachedUrl) {
-          if (playerContainerRef.current && !cancelled) {
-            createNativePlayer(playerContainerRef.current, cachedUrl, {
-              onLoad: () => { setLoadingState(false); setErrorState(null); },
-              onError: (msg) => { setErrorState(msg); setLoadingState(false); },
-            });
-          }
-          return;
-        }
-        setErrorState('离线状态，该视频尚未缓存。请联网后先播放一次。');
-        setLoadingState(false);
-        return;
-      }
-
-      // ===== 在线：用阿里云播放器播放 =====
       try {
+        // 1. 加载本地播放器资源（从 GitHub Pages 本地加载，不再依赖外部 CDN）
         await loadPlayerAssets();
         if (cancelled) return;
 
-        const resp = await fetch(
-          `${PLAYAUTH_API}?videoId=${encodeURIComponent(video.videoId)}`,
-          { signal: AbortSignal.timeout(10000) }
+        // 2. 从后端获取 playauth（带重试）
+        const resp = await fetchWithRetry(
+          `${PLAYAUTH_API}?videoId=${encodeURIComponent(video.videoId)}`
         );
-        if (!resp.ok) throw new Error(`获取播放凭证失败: ${resp.status}`);
+        if (!resp.ok) {
+          const errText = await resp.text();
+          throw new Error(`获取播放凭证失败: ${resp.status} ${errText}`);
+        }
         const { playAuth } = await resp.json();
-        if (!playAuth) throw new Error('播放凭证为空');
+
         if (cancelled) return;
 
-        if (!playerContainerRef.current || cancelled) return;
+        if (cancelled || !playerContainerRef.current) return;
 
+        // 3. 初始化阿里云播放器
         playerRef.current = new window.Aliplayer({
           id: playerContainerRef.current.id,
           vid: video.videoId,
@@ -221,7 +146,10 @@ export default function Player() {
             { name: 'tooltip', align: 'blabs', x: 0, y: 56 },
             { name: 'thumbnail' },
             {
-              name: 'controlBar', align: 'blabs', x: 0, y: 0,
+              name: 'controlBar',
+              align: 'blabs',
+              x: 0,
+              y: 0,
               children: [
                 { name: 'progress', align: 'blabs', x: 0, y: 44 },
                 { name: 'playButton', align: 'tl', x: 15, y: 12 },
@@ -234,20 +162,28 @@ export default function Player() {
           ],
         });
 
+        // 播放器事件
         playerRef.current.on('ready', () => {
-          if (!cancelled) { setLoadingState(false); retryCountRef.current = 0; setRetries(0); }
+          if (!cancelled) { setLoading(false); retryCountRef.current = 0; setRetries(0); }
         });
         playerRef.current.on('playing', () => {
-          if (!cancelled) { setLoadingState(false); setErrorState(null); retryCountRef.current = 0; setRetries(0); }
+          if (!cancelled) { setLoading(false); setError(null); retryCountRef.current = 0; setRetries(0); }
         });
-        playerRef.current.on('error', () => {
+        playerRef.current.on('error', (e: any) => {
+          console.error('播放器错误:', e);
           if (cancelled) return;
+
+          // 自动重试，最多3次
           if (retryCountRef.current < 3) {
             retryCountRef.current++;
             const count = retryCountRef.current;
             setRetries(count);
+            console.log(`播放器错误，自动重试 (${count}/3)...`);
+
+            // 销毁当前播放器并重新初始化
             try { playerRef.current?.dispose(); } catch (_) {}
             playerRef.current = null;
+
             setTimeout(() => {
               if (!cancelled && playerContainerRef.current) {
                 playerContainerRef.current.innerHTML = '';
@@ -255,26 +191,15 @@ export default function Player() {
               }
             }, 2000 * count);
           } else {
-            setErrorState('视频播放失败，请检查网络后刷新');
-            setLoadingState(false);
+            setError('视频播放失败，请检查网络后刷新');
+            setLoading(false);
           }
         });
-
-        // 播放成功后，用 Performance API 找到 mp4 URL，后台下载缓存
-        playerRef.current.on('playing', () => {
-          if (cancelled) return;
-          // 等一小段时间确保 Performance 日志已记录
-          setTimeout(() => {
-            const mp4Url = findMp4UrlFromPerformance();
-            if (mp4Url) {
-              downloadAndCacheVideo(mp4Url, video.videoId).catch(() => {});
-            }
-          }, 2000);
-        });
       } catch (e: any) {
-        if (cancelled) return;
-        setErrorState(e.message || '加载失败，请刷新页面');
-        setLoadingState(false);
+        if (!cancelled) {
+          setError(e.message || '加载失败，请刷新页面');
+          setLoading(false);
+        }
       }
     };
 
@@ -282,10 +207,14 @@ export default function Player() {
 
     return () => {
       cancelled = true;
-      if (playerRef.current) { try { playerRef.current.dispose(); } catch (_) {} playerRef.current = null; }
+      if (playerRef.current) {
+        try { playerRef.current.dispose(); } catch (_) {}
+        playerRef.current = null;
+      }
     };
   }, [video?.videoId]);
 
+  // 键盘快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') navigate('/');
@@ -296,6 +225,7 @@ export default function Player() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate, nextIndex, prevIndex]);
 
+  // 切换视频
   const goToVideo = useCallback(
     (newIndex: number, direction: SwipeDirection) => {
       if (newIndex < 0 || !grade) return;
@@ -308,6 +238,7 @@ export default function Player() {
     [grade, gradeId, navigate]
   );
 
+  // 触摸事件
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -319,6 +250,7 @@ export default function Player() {
     const absDeltaY = Math.abs(deltaY);
     const absDeltaX = Math.abs(deltaX);
     const threshold = 60;
+
     if (absDeltaY > threshold && absDeltaY > absDeltaX) {
       if (deltaY < 0 && prevIndex !== null) goToVideo(prevIndex, 'right');
       else if (deltaY > 0 && nextIndex !== null) goToVideo(nextIndex, 'left');
@@ -330,27 +262,46 @@ export default function Player() {
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted text-lg mb-4">视频不存在</p>
-          <button onClick={() => navigate('/')} className="px-6 py-2.5 rounded-xl bg-accent text-dark-900 font-medium hover:bg-accent-light transition-colors">返回首页</button>
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-2.5 rounded-xl bg-accent text-dark-900 font-medium hover:bg-accent-light transition-colors"
+          >
+            返回首页
+          </button>
         </div>
       </div>
     );
   }
 
-  const animClass = swipeAnim === 'left' ? 'slide-in-right' : swipeAnim === 'right' ? 'slide-in-left' : '';
+  const animClass =
+    swipeAnim === 'left' ? 'slide-in-right' : swipeAnim === 'right' ? 'slide-in-left' : '';
 
   return (
-    <div className={`fixed inset-0 z-50 bg-black flex flex-col ${animClass}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      <div id="aliplayer-container" ref={playerContainerRef} className="w-screen h-screen bg-black" />
+    <div
+      className={`fixed inset-0 z-50 bg-black flex flex-col ${animClass}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* 阿里云播放器容器 */}
+      <div
+        id="aliplayer-container"
+        ref={playerContainerRef}
+        className="w-screen h-screen bg-black"
+      />
 
+      {/* 加载中 */}
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-            <p className="text-white/50 text-sm">{retries > 0 ? `加载中（重试 ${retries}/3）...` : '加载中...'}</p>
+            <p className="text-white/50 text-sm">
+              {retries > 0 ? `加载中（重试 ${retries}/3）...` : '加载中...'}
+            </p>
           </div>
         </div>
       )}
 
+      {/* 错误提示 */}
       {error && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-900/80 text-white px-6 py-3 rounded-lg text-sm max-w-xs text-center pointer-events-none">
           <p className="font-medium mb-1">播放失败</p>
@@ -358,34 +309,41 @@ export default function Player() {
         </div>
       )}
 
-      <div className="absolute top-3 left-3 z-40 pointer-events-none flex items-center gap-2">
-        <h1 className="text-white/70 text-sm sm:text-base font-medium drop-shadow-lg max-w-[60vw] truncate">{video.title}</h1>
-        {isOffline && <span className="text-yellow-400/70 text-xs bg-black/40 px-2 py-0.5 rounded-full">离线</span>}
+      {/* 左上角标题 */}
+      <div className="absolute top-3 left-3 z-40 pointer-events-none">
+        <h1 className="text-white/70 text-sm sm:text-base font-medium drop-shadow-lg max-w-[60vw] truncate">
+          {video.title}
+        </h1>
       </div>
 
+      {/* 右上角首页按钮 */}
       <div className="absolute top-3 right-3 z-40">
         <ControlButton onClick={() => navigate('/')} label="首页">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" />
-            <path d="M9 21V12h6v9" />
+            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/>
+            <path d="M9 21V12h6v9"/>
           </svg>
           <span>首页</span>
         </ControlButton>
       </div>
 
+      {/* 右侧中间：上/下箭头 */}
       <div className="absolute right-3 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-10">
         {prevIndex !== null && (
           <ControlButton onClick={() => goToVideo(prevIndex, 'right')} label="上一课">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 19V5" /><path d="M5 12l7-7 7 7" />
+              <path d="M12 19V5"/>
+              <path d="M5 12l7-7 7 7"/>
             </svg>
             <span>上一课</span>
           </ControlButton>
         )}
+
         {nextIndex !== null && (
           <ControlButton onClick={() => goToVideo(nextIndex, 'left')} label="下一课">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14" /><path d="M5 12l7 7 7-7" />
+              <path d="M12 5v14"/>
+              <path d="M5 12l7 7 7-7"/>
             </svg>
             <span>下一课</span>
           </ControlButton>
@@ -395,10 +353,22 @@ export default function Player() {
   );
 }
 
-function ControlButton({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
+/** 半透明圆角矩形按钮 */
+function ControlButton({
+  onClick,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <button onClick={(e) => { e.stopPropagation(); onClick(); }} title={label}
-      className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white hover:bg-black/50 active:scale-90 transition-all focus:outline-none whitespace-nowrap text-sm">
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title={label}
+      className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white hover:bg-black/50 active:scale-90 transition-all focus:outline-none whitespace-nowrap text-sm"
+    >
       {children}
     </button>
   );
