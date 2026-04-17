@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://woaipashanhu.github.io/feiman-manim/sitemap.xml

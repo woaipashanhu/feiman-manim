@@ -11,12 +11,13 @@ export default function GradeSection({ data, sectionIndex }: GradeSectionProps) 
     <section
       className="fade-in-up"
       style={{ animationDelay: `${sectionIndex * 100 + 200}ms`, opacity: 0 }}
+      aria-label={`${data.name}数学课程`}
     >
       {/* 标题行 */}
       <div className="px-4 sm:px-6 lg:px-8 mb-4">
         <div className="flex items-center gap-2.5">
           {/* 色块装饰 */}
-          <div className="w-1 h-5 rounded-full bg-[#00d4aa]/70" />
+          <div className="w-1 h-5 rounded-full bg-[#00d4aa]/70" aria-hidden="true" />
           <h2 className="text-xl sm:text-2xl font-display text-white/95">
             {data.name}
           </h2>
