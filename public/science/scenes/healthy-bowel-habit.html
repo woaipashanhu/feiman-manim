@@ -9,67 +9,99 @@
     body { overflow: hidden; background: #0a0e1a; font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
     #canvas-container { width: 100vw; height: 100vh; }
     canvas { display: block; width: 100%; height: 100%; }
+
     #stage-hint {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.65); backdrop-filter: blur(12px);
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(12px);
       color: #fff; padding: 14px 28px; border-radius: 20px;
       font-size: 15px; text-align: center; z-index: 100;
-      border: 1px solid rgba(255,255,255,0.08);
-      transition: all 0.5s ease; max-width: 88vw; line-height: 1.6;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: all 0.5s ease; max-width: 88vw; line-height: 1.7;
     }
+
     #progress-bar {
       position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 6px; z-index: 100;
-      background: rgba(0,0,0,0.4); backdrop-filter: blur(8px);
+      display: flex; gap: 8px; z-index: 100;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
       padding: 8px 16px; border-radius: 20px;
     }
-    .dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: rgba(255,255,255,0.12); transition: all 0.4s ease;
-    }
-    .dot.active { background: #00d4aa; transform: scale(1.4); box-shadow: 0 0 8px rgba(0,212,170,0.5); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.15); transition: all 0.4s ease; }
+    .dot.active { background: #00d4aa; transform: scale(1.5); box-shadow: 0 0 10px rgba(0,212,170,0.6); }
     .dot.done { background: #00d4aa; opacity: 0.4; }
+
     #title-overlay {
-      position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+      position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
       color: #fff; text-align: center; z-index: 100;
       opacity: 0; transition: opacity 0.8s ease; pointer-events: none;
     }
     #title-overlay.show { opacity: 1; }
     #title-overlay h1 {
-      font-size: 26px; font-weight: 700;
+      font-size: 28px; font-weight: 700;
+      background: linear-gradient(135deg, #00d4aa, #00b4d8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-shadow: none;
+    }
+    #title-overlay p { font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 8px; }
+
+    #stage-label {
+      position: fixed; top: 56px; right: 20px;
+      color: rgba(255,255,255,0.2); font-size: 12px; z-index: 100; pointer-events: none;
+    }
+
+    /* 开场遮罩 */
+    #intro-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+      cursor: pointer; transition: opacity 0.6s ease;
+    }
+    #intro-overlay.hidden { opacity: 0; pointer-events: none; }
+    #intro-overlay h1 {
+      font-size: 32px; font-weight: 700; color: #fff; margin-bottom: 16px;
       background: linear-gradient(135deg, #00d4aa, #00b4d8);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    #title-overlay p { font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 6px; }
-    #stage-label {
-      position: fixed; top: 52px; right: 20px;
-      color: rgba(255,255,255,0.15); font-size: 12px; z-index: 100; pointer-events: none;
+    #intro-overlay p { color: rgba(255,255,255,0.5); font-size: 16px; margin-bottom: 30px; }
+    #intro-overlay .start-btn {
+      padding: 14px 40px; border-radius: 30px; border: none;
+      background: linear-gradient(135deg, #00d4aa, #00b4d8);
+      color: #fff; font-size: 18px; font-weight: 600; cursor: pointer;
+      box-shadow: 0 4px 24px rgba(0,212,170,0.4);
+      animation: pulse 2s ease infinite;
+      font-family: inherit;
     }
+    @keyframes pulse {
+      0%,100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
     .action-btn {
       position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
       padding: 12px 32px; border-radius: 24px; border: none;
       font-size: 15px; font-weight: 600; cursor: pointer; z-index: 100;
       transition: all 0.3s ease; display: none; font-family: inherit;
     }
-    .action-btn:hover { transform: translateX(-50%) scale(1.05); }
-    .action-btn:active { transform: translateX(-50%) scale(0.95); }
     .action-btn.show { display: block; animation: fadeInUp 0.5s ease; }
     .btn-green { background: linear-gradient(135deg, #00d4aa, #00b4d8); color: #fff; box-shadow: 0 4px 20px rgba(0,212,170,0.3); }
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
+    @keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+
     #key-hint { position: fixed; bottom: 24px; right: 20px; color: rgba(255,255,255,0.15); font-size: 11px; z-index: 100; }
   </style>
 </head>
 <body>
   <div id="canvas-container"></div>
   <div id="progress-bar"></div>
-  <div id="title-overlay"><h1>为什么便秘会肚子疼？</h1><p>食物在身体里的旅行</p></div>
+  <div id="title-overlay"><h1></h1><p></p></div>
   <div id="stage-hint">点击屏幕开始探索</div>
   <div id="stage-label"></div>
   <button class="action-btn btn-green" id="action-btn" onclick="nextStage()">再看一次</button>
   <div id="key-hint">拖拽旋转 · 滚轮缩放 · 点击推进</div>
+
+  <div id="intro-overlay">
+    <h1>为什么便秘会肚子疼？</h1>
+    <p>食物在身体里的旅行</p>
+    <div class="start-btn">点击开始探索</div>
+  </div>
 
   <script type="importmap">
   { "imports": { "three": "https://unpkg.com/three@0.184.0/build/three.module.min.js" } }
@@ -78,400 +110,459 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js';
 
-    const WIDTH = window.innerWidth, HEIGHT = window.innerHeight;
+    const W = window.innerWidth, H = window.innerHeight;
     const STAGES = 5;
     let currentStage = -1, stageTime = 0;
     const clock = new THREE.Clock();
 
+    // ===== 渲染器 =====
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0e1a);
-    const camera = new THREE.PerspectiveCamera(45, WIDTH / HEIGHT, 0.1, 500);
-    camera.position.set(0, 5, 22);
+    scene.background = new THREE.Color(0x0d1520);
+    scene.fog = new THREE.FogExp2(0x0d1520, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(50, W/H, 0.1, 200);
+    camera.position.set(0, 4, 16);
+
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(WIDTH, HEIGHT);
+    renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.3;
+    renderer.toneMappingExposure = 1.5;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.08;
-    controls.maxDistance = 35; controls.minDistance = 8;
-    controls.maxPolarAngle = Math.PI * 0.8;
+    controls.maxDistance = 30; controls.minDistance = 6;
+    controls.maxPolarAngle = Math.PI * 0.85;
     controls.target.set(0, 3, 0);
 
-    const ambientLight = new THREE.AmbientLight(0x334466, 1.0); scene.add(ambientLight);
-    const mainLight = new THREE.DirectionalLight(0xffeedd, 1.0);
-    mainLight.position.set(8, 15, 10); mainLight.castShadow = true; scene.add(mainLight);
-    const fillLight = new THREE.PointLight(0x4488ff, 0.4, 40);
-    fillLight.position.set(-6, 8, -4); scene.add(fillLight);
-    const rimLight = new THREE.PointLight(0x00d4aa, 0.5, 30);
-    rimLight.position.set(-5, 8, -5); scene.add(rimLight);
-    const dangerLight = new THREE.PointLight(0xff4444, 0, 20);
-    dangerLight.position.set(0, 4, 0); scene.add(dangerLight);
+    // ===== 灯光（更亮，确保可见） =====
+    scene.add(new THREE.AmbientLight(0x445577, 1.5));
+    const sunLight = new THREE.DirectionalLight(0xfff0dd, 1.5);
+    sunLight.position.set(10, 15, 12); scene.add(sunLight);
+    const fillA = new THREE.PointLight(0x4488ff, 0.8, 50);
+    fillA.position.set(-8, 10, -5); scene.add(fillA);
+    const fillB = new THREE.PointLight(0x00d4aa, 0.6, 40);
+    fillB.position.set(-5, 8, -5); scene.add(fillB);
+    const dangerLight = new THREE.PointLight(0xff4444, 0, 25);
+    dangerLight.position.set(0, 4, 2); scene.add(dangerLight);
 
-    function makeMat(color, opts = {}) {
+    // ===== 工具函数 =====
+    function mat(color, opts={}) {
       return new THREE.MeshStandardMaterial({
-        color, roughness: opts.roughness ?? 0.5, metalness: opts.metalness ?? 0.05,
-        transparent: !!opts.opacity, opacity: opts.opacity ?? 1, side: opts.side ?? THREE.FrontSide
+        color, roughness: opts.roughness??0.45, metalness: opts.metalness??0.05,
+        transparent: !!opts.opacity, opacity: opts.opacity??1, side: opts.side??THREE.FrontSide,
+        emissive: opts.emissive||0x000000, emissiveIntensity: opts.emissiveI??0
       });
     }
-    function makeSphere(r, color, opts) {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), makeMat(color, opts));
-      m.castShadow = true; return m;
+    function sphere(r, color, opts) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), mat(color, opts));
+      return m;
     }
-    function makeTube(pts, radius, color, opts = {}) {
+    function tube(pts, radius, color, opts={}) {
       const curve = new THREE.CatmullRomCurve3(pts);
-      const geo = new THREE.TubeGeometry(curve, 80, Math.max(0.01, radius), 20, false);
-      const mesh = new THREE.Mesh(geo, makeMat(color, { roughness: 0.4, ...opts }));
-      mesh.castShadow = true; return { mesh, curve };
+      const geo = new THREE.TubeGeometry(curve, 80, Math.max(0.02, radius), 20, false);
+      const m = new THREE.Mesh(geo, mat(color, {roughness:0.35, ...opts}));
+      return {mesh:m, curve};
     }
-    function lerpColor(a, b, t) {
-      const ca = new THREE.Color(a), cb = new THREE.Color(b);
-      ca.lerp(cb, Math.max(0, Math.min(1, t))); return ca.getHex();
+    function lerp3(a, b, t) {
+      return new THREE.Color(a).lerp(new THREE.Color(b), Math.max(0,Math.min(1,t))).getHex();
     }
 
-    // ===== 人体腹部模型 =====
-    const bodyGroup = new THREE.Group(); scene.add(bodyGroup);
+    // ===== 人体腹部 =====
+    const body = new THREE.Group(); scene.add(body);
 
-    const bellyShell = makeSphere(3.5, 0xffccaa, { opacity: 0.12, side: THREE.DoubleSide, roughness: 0.8 });
-    bellyShell.scale.set(1.2, 1.0, 0.8); bellyShell.position.y = 3.5; bodyGroup.add(bellyShell);
+    // 半透明腹壁（外面看到的肚皮）
+    const belly = sphere(3.2, 0xffccaa, {opacity:0.08, side:THREE.DoubleSide, roughness:0.9});
+    belly.scale.set(1.15, 1.0, 0.75); belly.position.y = 3.5; body.add(belly);
 
-    const spinePoints = [];
-    for (let i = 0; i <= 20; i++) { spinePoints.push(new THREE.Vector3(-0.8, 1.5 + (i/20)*4, 0)); }
-    bodyGroup.add(makeTube(spinePoints, 0.08, 0xddccbb).mesh);
+    // 脊柱
+    const spinePts = [];
+    for(let i=0;i<=20;i++) spinePts.push(new THREE.Vector3(-0.8, 1.5+(i/20)*4, 0));
+    body.add(tube(spinePts, 0.06, 0xddccbb, {opacity:0.6}).mesh);
 
-    // ===== 肠道系统 =====
-    const intestineGroup = new THREE.Group(); bodyGroup.add(intestineGroup);
-
+    // ===== 肠道 =====
+    // 小肠 - 蜿蜒的粉红色管道
     const siPts = [];
-    for (let i = 0; i <= 40; i++) {
-      const t = i/40, angle = t*Math.PI*6, r = 0.8+Math.sin(t*4)*0.3;
-      siPts.push(new THREE.Vector3(Math.cos(angle)*r*0.5, 3.0+t*1.5, Math.sin(angle)*r*0.5+0.3));
+    for(let i=0;i<=40;i++){
+      const t=i/40, a=t*Math.PI*6, r=0.8+Math.sin(t*4)*0.3;
+      siPts.push(new THREE.Vector3(Math.cos(a)*r*0.5, 3.0+t*1.5, Math.sin(a)*r*0.5+0.3));
     }
-    const smallIntestine = makeTube(siPts, 0.18, 0xff8866, { opacity: 0.5, side: THREE.DoubleSide });
-    intestineGroup.add(smallIntestine.mesh);
+    const smallI = tube(siPts, 0.2, 0xff9977, {opacity:0.7, side:THREE.DoubleSide, emissive:0xff6655, emissiveI:0.15});
+    body.add(smallI.mesh);
 
+    // 大肠 - U形较粗管道
     const liPts = [
       [-1.2,5.0,0.3],[-1.3,4.5,0.4],[-1.2,4.0,0.5],[-1.0,3.5,0.5],[-0.6,3.0,0.4],
       [0.0,2.6,0.3],[0.6,3.0,0.3],[1.0,3.5,0.4],[1.2,4.0,0.5],[1.3,4.5,0.4],
       [1.2,5.0,0.3],[1.0,5.2,0.2],[0.5,5.3,0.1],[0.0,5.2,0.0],[-0.3,5.0,0.1],
       [-0.5,4.6,0.2],[-0.4,4.2,0.3],[-0.2,3.8,0.2],[0.0,3.4,0.1],[0.1,3.0,0.0],
       [0.1,2.6,-0.1],[0.0,2.2,-0.2]
-    ].map(p => new THREE.Vector3(...p));
-    const largeIntestine = makeTube(liPts, 0.3, 0xff6655, { opacity: 0.45, side: THREE.DoubleSide });
-    intestineGroup.add(largeIntestine.mesh);
+    ].map(p=>new THREE.Vector3(...p));
+    const largeI = tube(liPts, 0.32, 0xff7766, {opacity:0.65, side:THREE.DoubleSide, emissive:0xff5544, emissiveI:0.12});
+    body.add(largeI.mesh);
 
-    // ===== 动态元素 =====
-    const foodParticles = [], gasParticles = [], poopBlocks = [], painRings = [], pressureArrows = [], labels = [];
-    const foodColors = [0xff4444, 0xff8833, 0xffcc44, 0x44aa44, 0xcc6699];
+    // ===== 动态元素容器 =====
+    const dynObjs = []; // {obj, type}
+    const labels = [];
 
-    function createFoodBall(pos) {
-      const color = foodColors[Math.floor(Math.random()*foodColors.length)];
-      const ball = makeSphere(0.08+Math.random()*0.06, color);
-      ball.position.copy(pos);
-      ball.userData = { speed:0.3+Math.random()*0.2, progress:0, originalColor:color };
-      bodyGroup.add(ball); foodParticles.push(ball); return ball;
+    function addDyn(obj, type='default') { body.add(obj); dynObjs.push({obj,type}); return obj; }
+    function removeDynType(type) {
+      for(let i=dynObjs.length-1;i>=0;i--){
+        if(dynObjs[i].type===type){ body.remove(dynObjs[i].obj); dynObjs.splice(i,1); }
+      }
     }
-    function createGasBubble(pos) {
-      const b = makeSphere(0.05+Math.random()*0.1, 0xaaddff, { opacity:0.35 });
+    function clearAllDyn() {
+      dynObjs.forEach(d=>body.remove(d.obj)); dynObjs.length=0;
+      labels.forEach(l=>body.remove(l)); labels.length=0;
+    }
+
+    // 食物球
+    function foodBall(pos) {
+      const colors=[0xff4444,0xff8833,0xffcc44,0x44aa44,0xcc6699,0x44aaff];
+      const c=colors[Math.floor(Math.random()*colors.length)];
+      const s=sphere(0.1+Math.random()*0.05, c, {emissive:c, emissiveI:0.3});
+      s.position.copy(pos);
+      s.userData={speed:0.04+Math.random()*0.02, progress:0, path:'', origColor:c};
+      return addDyn(s,'food');
+    }
+
+    // 气泡
+    function gasBubble(pos) {
+      const b=sphere(0.06+Math.random()*0.08, 0x88ccff, {opacity:0.5, emissive:0x4488ff, emissiveI:0.2});
       b.position.copy(pos);
-      b.userData = { baseY:pos.y, phase:Math.random()*Math.PI*2, speed:0.5+Math.random()*0.5 };
-      bodyGroup.add(b); gasParticles.push(b); return b;
+      b.userData={baseY:pos.y, phase:Math.random()*Math.PI*2, speed:0.5+Math.random()*0.5};
+      return addDyn(b,'gas');
     }
-    function createPoopBlock(pos, size=1) {
-      const g = new THREE.Group();
-      for (let i=0;i<3;i++) {
-        const s = makeSphere(0.1*size, 0x8B6914);
+
+    // 水分粒子
+    function waterDot(pos) {
+      const w=sphere(0.035, 0x4499ff, {opacity:0.7, emissive:0x2266ff, emissiveI:0.4});
+      w.position.copy(pos);
+      w.userData={angle:Math.random()*Math.PI*2, phase:Math.random()*Math.PI*2,
+                   radius:0.1+Math.random()*0.15, speed:1.5+Math.random()*1.5, centerT:pos.userData?.t||0.5};
+      return addDyn(w,'water');
+    }
+
+    // 便便硬块
+    function poopBlock(pos, size=1) {
+      const g=new THREE.Group();
+      for(let i=0;i<4;i++){
+        const s=sphere(0.12*size, 0x8B6914, {emissive:0x554400, emissiveI:0.1});
         s.scale.set(0.8+Math.random()*0.4, 0.6+Math.random()*0.4, 0.8+Math.random()*0.4);
-        s.position.set((Math.random()-0.5)*0.15*size,(Math.random()-0.5)*0.1*size,(Math.random()-0.5)*0.15*size);
+        s.position.set((Math.random()-0.5)*0.18*size,(Math.random()-0.5)*0.12*size,(Math.random()-0.5)*0.18*size);
         g.add(s);
       }
-      g.position.copy(pos); g.userData = { originalPos:pos.clone() };
-      bodyGroup.add(g); poopBlocks.push(g); return g;
-    }
-    function createPressureArrow(from, to) {
-      const dir = new THREE.Vector3().subVectors(to, from);
-      const a = new THREE.ArrowHelper(dir.normalize(), from, dir.length(), 0xff6644, 0.3, 0.15);
-      bodyGroup.add(a); pressureArrows.push(a); return a;
+      g.position.copy(pos);
+      g.userData={origPos:pos.clone()};
+      return addDyn(g,'poop');
     }
 
-    function createLabel(text, pos, color='#ffffff') {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width=256; canvas.height=96;
-      ctx.font='bold 22px PingFang SC, Microsoft YaHei, sans-serif';
+    // 标注精灵
+    function label(text, pos, color='#ffffff') {
+      const cv=document.createElement('canvas');
+      const ctx=cv.getContext('2d');
+      cv.width=320; cv.height=96;
+      ctx.font='bold 26px PingFang SC, Microsoft YaHei, sans-serif';
       ctx.fillStyle=color; ctx.textAlign='center';
-      const lines = text.split('\n');
-      lines.forEach((line, i) => ctx.fillText(line, 128, 35+i*28));
-      const tex = new THREE.CanvasTexture(canvas);
-      const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, opacity:0.9 });
-      const sprite = new THREE.Sprite(mat);
-      sprite.position.copy(pos); sprite.scale.set(2.5, lines.length*0.9, 1);
-      bodyGroup.add(sprite); labels.push(sprite); return sprite;
+      ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=8;
+      const lines=text.split('\n');
+      lines.forEach((l,i)=>ctx.fillText(l, 160, 38+i*30));
+      const tex=new THREE.CanvasTexture(cv);
+      const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, opacity:0.95}));
+      sp.position.copy(pos); sp.scale.set(3, lines.length*0.9, 1);
+      body.add(sp); labels.push(sp); return sp;
     }
 
-    // ===== 背景粒子 =====
-    (() => {
-      const geo = new THREE.BufferGeometry();
-      const pos = new Float32Array(600);
-      for (let i=0;i<200;i++) { pos[i*3]=(Math.random()-0.5)*30; pos[i*3+1]=Math.random()*20; pos[i*3+2]=(Math.random()-0.5)*30; }
-      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ color:0x334466, size:0.06, transparent:true, opacity:0.5 })));
-    })();
+    // 背景星星
+    const starsGeo=new THREE.BufferGeometry();
+    const starPos=new Float32Array(600);
+    for(let i=0;i<200;i++){starPos[i*3]=(Math.random()-0.5)*40;starPos[i*3+1]=Math.random()*25;starPos[i*3+2]=(Math.random()-0.5)*40;}
+    starsGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));
+    scene.add(new THREE.Points(starsGeo,new THREE.PointsMaterial({color:0x556688,size:0.08,transparent:true,opacity:0.6})));
+
+    // 地面
+    const ground=new THREE.Mesh(new THREE.CircleGeometry(15,64),mat(0x111822,{roughness:0.95}));
+    ground.rotation.x=-Math.PI/2; ground.position.y=-0.5; scene.add(ground);
 
     // ===== 阶段配置 =====
-    const stageConfig = [
-      { title:'食物的旅行', hint:'食物吃进肚子后，会经过长长的肠道，像坐过山车一样！\n小肠负责吸收营养，大肠负责吸收水分', bg:0x0a1628, cam:[0,5,22], look:[0,3.5,0] },
-      { title:'水分被反复吸收', hint:'如果便便在肠道里待太久，水分就会被肠壁一遍又一遍地吸走\n便便变得越来越干、越来越硬，像石头一样', bg:0x1a1028, cam:[2,5,18], look:[0,4,0] },
-      { title:'肠道大堵车', hint:'又干又硬的便便堵在肠道里，排不出去\n后面的便便也堵在后面，越堵越多', bg:0x1a0e0e, cam:[-1,5,16], look:[0,3.8,0] },
-      { title:'肚子为什么疼？', hint:'堵住的便便把肠道撑得越来越大\n肠道里的气体排不出去，产生巨大的压力\n你的肚皮被撑开，所以会胀、会疼！', bg:0x200808, cam:[1,5,17], look:[0,3.5,0] },
-      { title:'每天排便，肠道通畅', hint:'每天定时排便，便便又软又顺畅\n肠道不会被撑开，气体能排出去\n肚子就舒舒服服啦！', bg:0x0a1a18, cam:[0,5,20], look:[0,3.5,0] }
+    const CFG = [
+      {title:'食物的旅行', hint:'食物吃进肚子后，经过长长的肠道旅行\n小肠吸收营养，大肠吸收水分', bg:0x0d1520, cam:[0,4,16], look:[0,3.5,0]},
+      {title:'水分被反复吸收', hint:'便便在肠道待太久，水分被一遍遍吸走\n便便变得越来越干、越来越硬', bg:0x15102a, cam:[2,5,15], look:[0,4,0]},
+      {title:'肠道大堵车', hint:'又干又硬的便便堵在肠道里排不出去\n后面的便便越堵越多，像堵车一样', bg:0x1a0e0e, cam:[-1,4,14], look:[0,3.8,0]},
+      {title:'肚子为什么疼？', hint:'便便把肠道撑大，气体排不出去\n压力越来越大，肚皮被撑开\n所以会胀、会疼！', bg:0x200808, cam:[1,4,15], look:[0,3.5,0]},
+      {title:'每天排便，肠道通畅', hint:'每天定时排便，便便又软又顺畅\n肠道不堵塞，气体排得出去\n肚子就舒舒服服啦！', bg:0x0a1a18, cam:[0,4,16], look:[0,3.5,0]}
     ];
 
     // ===== UI =====
-    const stageHint = document.getElementById('stage-hint');
-    const progressBar = document.getElementById('progress-bar');
-    const titleOverlay = document.getElementById('title-overlay');
-    const actionBtn = document.getElementById('action-btn');
-    const stageLabel = document.getElementById('stage-label');
+    const hint=document.getElementById('stage-hint');
+    const progBar=document.getElementById('progress-bar');
+    const titleOv=document.getElementById('title-overlay');
+    const actBtn=document.getElementById('action-btn');
+    const stLabel=document.getElementById('stage-label');
+    const introOv=document.getElementById('intro-overlay');
 
-    for (let i=0;i<STAGES;i++) { const d=document.createElement('div'); d.className='dot'; progressBar.appendChild(d); }
+    for(let i=0;i<STAGES;i++){const d=document.createElement('div');d.className='dot';progBar.appendChild(d);}
 
-    function updateUI(idx) {
-      progressBar.querySelectorAll('.dot').forEach((d,i) => {
-        d.className='dot'; if(i<idx) d.classList.add('done'); else if(i===idx) d.classList.add('active');
+    function ui(idx){
+      progBar.querySelectorAll('.dot').forEach((d,i)=>{
+        d.className='dot'; if(i<idx)d.classList.add('done'); else if(i===idx)d.classList.add('active');
       });
-      const cfg = stageConfig[idx];
-      stageHint.innerHTML = cfg.hint.replace(/\n/g,'<br>');
-      stageHint.style.whiteSpace = 'pre-line';
-      titleOverlay.querySelector('h1').textContent = cfg.title;
-      titleOverlay.querySelector('p').textContent = '';
-      titleOverlay.classList.add('show');
-      setTimeout(() => titleOverlay.classList.remove('show'), 4000);
-      stageLabel.textContent = (idx+1)+' / '+STAGES;
+      const c=CFG[idx];
+      hint.innerHTML=c.hint.replace(/\n/g,'<br>'); hint.style.whiteSpace='pre-line';
+      titleOv.querySelector('h1').textContent=c.title;
+      titleOv.querySelector('p').textContent='';
+      titleOv.classList.add('show'); setTimeout(()=>titleOv.classList.remove('show'),4000);
+      stLabel.textContent=(idx+1)+'/'+STAGES;
     }
 
-    function clearDynamic() {
-      [foodParticles, gasParticles, poopBlocks, painRings, pressureArrows, labels].forEach(arr => {
-        arr.forEach(obj => bodyGroup.remove(obj)); arr.length = 0;
-      });
-      bellyShell.scale.set(1.2,1.0,0.8); bellyShell.position.y=3.5;
-      bellyShell.material.opacity=0.12; bellyShell.material.color.setHex(0xffccaa);
-      smallIntestine.mesh.material.opacity=0.5; smallIntestine.mesh.material.color.setHex(0xff8866);
-      largeIntestine.mesh.material.opacity=0.45; largeIntestine.mesh.material.color.setHex(0xff6655);
-      dangerLight.intensity=0; mainLight.color.setHex(0xffeedd); mainLight.intensity=1.0;
-      actionBtn.classList.remove('show');
-      bodyGroup.position.x = 0;
+    // ===== 重置 =====
+    function resetVisuals(){
+      clearAllDyn();
+      belly.scale.set(1.15,1.0,0.75); belly.position.y=3.5;
+      belly.material.opacity=0.08; belly.material.color.setHex(0xffccaa);
+      smallI.mesh.material.opacity=0.7; smallI.mesh.material.color.setHex(0xff9977);
+      largeI.mesh.material.opacity=0.65; largeI.mesh.material.color.setHex(0xff7766);
+      dangerLight.intensity=0; sunLight.color.setHex(0xfff0dd); sunLight.intensity=1.5;
+      actBtn.classList.remove('show'); body.position.x=0;
     }
 
     // ===== 阶段进入 =====
-    function enterStage(idx) {
-      currentStage = idx; stageTime = 0; clearDynamic();
-      const cfg = stageConfig[idx];
-      scene.background.set(cfg.bg); updateUI(idx);
+    function enterStage(idx){
+      currentStage=idx; stageTime=0; resetVisuals();
+      const c=CFG[idx]; scene.background.set(c.bg); scene.fog.color.set(c.bg);
+      ui(idx);
 
-      if (idx === 0) {
-        for (let i=0;i<8;i++) {
-          const t=i*0.12, pt=smallIntestine.curve.getPointAt(Math.min(t,0.99));
-          const b=createFoodBall(pt); b.userData.progress=t; b.userData.speed=0.04+Math.random()*0.02; b.userData.path='small';
+      if(idx===0){
+        // 食物沿小肠运动
+        for(let i=0;i<10;i++){
+          const t=i*0.1, pt=smallI.curve.getPointAt(Math.min(t,0.99));
+          const b=foodBall(pt); b.userData.progress=t; b.userData.speed=0.04+Math.random()*0.015; b.userData.path='small';
         }
-        for (let i=0;i<3;i++) {
-          const t=0.3+i*0.25, pt=largeIntestine.curve.getPointAt(Math.min(t,0.99));
-          const b=createFoodBall(pt); b.userData.progress=t; b.userData.speed=0.025; b.userData.path='large';
+        // 大肠里也有食物
+        for(let i=0;i<4;i++){
+          const t=0.25+i*0.2, pt=largeI.curve.getPointAt(Math.min(t,0.99));
+          const b=foodBall(pt); b.userData.progress=t; b.userData.speed=0.025; b.userData.path='large';
         }
-        createLabel('小肠\n吸收营养', new THREE.Vector3(1.8,3.8,1.0), '#88bbff');
-        createLabel('大肠\n吸收水分', new THREE.Vector3(2.2,4.5,1.2), '#ffaa88');
-
-      } else if (idx === 1) {
-        for (let i=0;i<6;i++) {
-          const t=0.15+i*0.14, pt=largeIntestine.curve.getPointAt(Math.min(t,0.99));
-          const b=createFoodBall(pt); b.userData.progress=t; b.userData.speed=0.008+Math.random()*0.005; b.userData.path='large';
+        label('小肠', new THREE.Vector3(2.0,3.8,1.2),'#aaddff');
+        label('大肠', new THREE.Vector3(2.2,4.8,1.4),'#ffbb88');
+      } else if(idx===1){
+        // 食物在大肠中缓慢移动并变干
+        for(let i=0;i<7;i++){
+          const t=0.1+i*0.11, pt=largeI.curve.getPointAt(Math.min(t,0.99));
+          const b=foodBall(pt); b.userData.progress=t; b.userData.speed=0.006+Math.random()*0.004; b.userData.path='large';
         }
-        for (let i=0;i<30;i++) {
-          const t=0.2+Math.random()*0.6, c=largeIntestine.curve.getPointAt(t);
+        // 水分粒子飞向肠壁
+        for(let i=0;i<35;i++){
+          const t=0.15+Math.random()*0.65, c=largeI.curve.getPointAt(t);
+          c.userData={t};
           const angle=Math.random()*Math.PI*2;
-          const w=makeSphere(0.03, 0x4488ff, { opacity:0.6 });
-          w.position.set(c.x+Math.cos(angle)*(0.1+Math.random()*0.2), c.y+(Math.random()-0.5)*0.2, c.z+Math.sin(angle)*(0.1+Math.random()*0.2));
-          w.userData={ angle, phase:Math.random()*Math.PI*2, radius:0.1+Math.random()*0.2, speed:1.5+Math.random()*1.5, centerT:t };
-          bodyGroup.add(w); gasParticles.push(w);
+          const w=waterDot(new THREE.Vector3(
+            c.x+Math.cos(angle)*0.15, c.y+(Math.random()-0.5)*0.15, c.z+Math.sin(angle)*0.15
+          ));
         }
-        largeIntestine.mesh.material.color.setHex(0xcc5544);
-        createLabel('水分被吸走...', new THREE.Vector3(2.5,3.5,1.5), '#66aaff');
-        createLabel('便便变干变硬', new THREE.Vector3(-2.5,4.0,1.5), '#cc8844');
-
-      } else if (idx === 2) {
-        largeIntestine.mesh.material.color.setHex(0xaa3333); largeIntestine.mesh.material.opacity=0.6;
-        [0.3,0.4,0.5,0.55,0.6,0.65,0.7].forEach((t,i) => {
-          const pt=largeIntestine.curve.getPointAt(t);
-          createPoopBlock(pt, 0.6+(i>4?0.3:0));
+        largeI.mesh.material.color.setHex(0xcc5544);
+        label('水分被吸走', new THREE.Vector3(2.8,3.5,1.8),'#66aaff');
+        label('便便变干变硬', new THREE.Vector3(-2.8,4.2,1.8),'#cc8844');
+      } else if(idx===2){
+        largeI.mesh.material.color.setHex(0xaa3333); largeI.mesh.material.opacity=0.75;
+        // 便便硬块堵塞
+        [0.25,0.35,0.42,0.5,0.55,0.6,0.65,0.7].forEach((t,i)=>{
+          const pt=largeI.curve.getPointAt(t); poopBlock(pt, 0.65+(i>5?0.25:0));
         });
-        for (let i=0;i<15;i++) {
-          const t=0.35+Math.random()*0.3, c=largeIntestine.curve.getPointAt(t);
-          createGasBubble(new THREE.Vector3(c.x+(Math.random()-0.5)*0.3, c.y+(Math.random()-0.5)*0.2, c.z+(Math.random()-0.5)*0.3));
+        // 气泡
+        for(let i=0;i<18;i++){
+          const t=0.3+Math.random()*0.35, c=largeI.curve.getPointAt(t);
+          gasBubble(new THREE.Vector3(c.x+(Math.random()-0.5)*0.3,c.y+(Math.random()-0.5)*0.2,c.z+(Math.random()-0.5)*0.3));
         }
-        bellyShell.scale.set(1.25,1.05,0.85);
-        createLabel('堵住了！', new THREE.Vector3(2.0,3.8,1.5), '#ff6644');
-        createLabel('越堵越多...', new THREE.Vector3(-2.0,4.2,1.5), '#ff8844');
-
-      } else if (idx === 3) {
-        dangerLight.intensity=0.6;
-        largeIntestine.mesh.material.color.setHex(0x992222); largeIntestine.mesh.material.opacity=0.65;
-        bellyShell.scale.set(1.4,1.15,0.95); bellyShell.material.opacity=0.18; bellyShell.material.color.setHex(0xffaaaa);
-        [0.25,0.35,0.42,0.48,0.53,0.58,0.63,0.68,0.72].forEach((t,i) => {
-          const pt=largeIntestine.curve.getPointAt(t);
-          createPoopBlock(pt, 0.7+(i>6?0.3:0));
+        belly.scale.set(1.25,1.06,0.85);
+        label('堵住了!', new THREE.Vector3(2.2,3.8,1.5),'#ff6644');
+        label('越堵越多', new THREE.Vector3(-2.2,4.2,1.5),'#ff8844');
+      } else if(idx===3){
+        dangerLight.intensity=0.8;
+        largeI.mesh.material.color.setHex(0x992222); largeI.mesh.material.opacity=0.8;
+        belly.scale.set(1.4,1.15,0.95); belly.material.opacity=0.15; belly.material.color.setHex(0xffaaaa);
+        // 更多堵塞
+        [0.2,0.28,0.35,0.42,0.48,0.53,0.58,0.63,0.68,0.73].forEach((t,i)=>{
+          const pt=largeI.curve.getPointAt(t); poopBlock(pt, 0.7+(i>7?0.3:0));
         });
-        for (let i=0;i<25;i++) {
-          const t=0.3+Math.random()*0.4, c=largeIntestine.curve.getPointAt(t);
-          createGasBubble(new THREE.Vector3(c.x+(Math.random()-0.5)*0.5, c.y+(Math.random()-0.5)*0.3, c.z+(Math.random()-0.5)*0.5));
+        // 大量气体
+        for(let i=0;i<30;i++){
+          const t=0.25+Math.random()*0.45, c=largeI.curve.getPointAt(t);
+          gasBubble(new THREE.Vector3(c.x+(Math.random()-0.5)*0.5,c.y+(Math.random()-0.5)*0.3,c.z+(Math.random()-0.5)*0.5));
         }
-        [
-          [[0,3.5,0.5],[2.5,3.8,1.0]], [[0,4.2,0.4],[2.8,4.5,0.9]], [[0,3.0,0.3],[2.2,3.2,0.8]],
-          [[0,4.5,0.3],[-2.5,4.8,0.8]], [[0,3.2,0.4],[-2.3,3.5,0.9]], [[0,3.8,0.5],[0,5.5,1.5]]
-        ].forEach(([f,t]) => createPressureArrow(new THREE.Vector3(...f), new THREE.Vector3(...t)));
-        createLabel('肠道被撑大', new THREE.Vector3(3.0,4.5,1.5), '#ff4444');
-        createLabel('气体压力', new THREE.Vector3(-3.0,4.5,1.5), '#ffaa44');
-        createLabel('肚子被撑得好疼！', new THREE.Vector3(0,6.2,1.5), '#ff6644');
-
-      } else if (idx === 4) {
-        rimLight.intensity=1.2;
-        largeIntestine.mesh.material.color.setHex(0xaa3333); largeIntestine.mesh.material.opacity=0.55;
-        smallIntestine.mesh.material.color.setHex(0xcc7766);
-        for (let i=0;i<5;i++) {
-          const t=0.1+i*0.15, pt=largeIntestine.curve.getPointAt(t);
-          const b=createFoodBall(pt); b.material.color.setHex(0x8B6914);
-          b.userData.progress=t; b.userData.speed=0.06; b.userData.path='large'; b.scale.setScalar(1.5);
+        // 压力箭头
+        [[[0,3.5,0.5],[3.0,3.8,1.2]],[[0,4.2,0.4],[3.2,4.5,1.1]],[[0,3.0,0.3],[2.8,3.2,1.0]],
+         [[0,4.5,0.3],[-3.0,4.8,1.0]],[[0,3.2,0.4],[-2.8,3.5,1.1]],[[0,3.8,0.5],[0,5.8,1.8]]
+        ].forEach(([f,t])=>{
+          const from=new THREE.Vector3(...f), to=new THREE.Vector3(...t);
+          const dir=new THREE.Vector3().subVectors(to,from);
+          const a=new THREE.ArrowHelper(dir.normalize(),from,dir.length(),0xff6644,0.35,0.18);
+          addDyn(a,'arrow');
+        });
+        // 疼痛波纹（用 torus）
+        for(let i=0;i<3;i++){
+          const t=0.35+Math.random()*0.3, c=largeI.curve.getPointAt(t);
+          const r=new THREE.Mesh(new THREE.TorusGeometry(0.3+i*0.2,0.02,8,32),
+            new THREE.MeshBasicMaterial({color:0xff4444,transparent:true,opacity:0.5-i*0.15}));
+          r.position.copy(c); r.lookAt(camera.position);
+          r.userData={ring:true, age:i*0.5, maxAge:2.5};
+          addDyn(r,'ring');
         }
-        createLabel('顺畅排出！', new THREE.Vector3(2.0,2.5,1.5), '#00d4aa');
-        createLabel('肠道通畅', new THREE.Vector3(-2.0,4.0,1.5), '#00d4aa');
-        createLabel('肚子舒服！', new THREE.Vector3(0,6.2,1.5), '#44ffaa');
+        label('肠道被撑大', new THREE.Vector3(3.5,4.5,1.5),'#ff4444');
+        label('气体压力', new THREE.Vector3(-3.5,4.5,1.5),'#ffaa44');
+        label('肚子好疼!', new THREE.Vector3(0,6.5,2.0),'#ff6644');
+      } else if(idx===4){
+        fillB.intensity=1.5;
+        largeI.mesh.material.color.setHex(0xaa3333);
+        smallI.mesh.material.color.setHex(0xcc7766);
+        // 便便顺畅排出
+        for(let i=0;i<6;i++){
+          const t=0.08+i*0.14, pt=largeI.curve.getPointAt(t);
+          const b=foodBall(pt); b.material.color.setHex(0x8B6914);
+          b.material.emissive.setHex(0x554400); b.material.emissiveIntensity=0.2;
+          b.userData.progress=t; b.userData.speed=0.055; b.userData.path='large'; b.scale.setScalar(1.5);
+        }
+        label('顺畅排出!', new THREE.Vector3(2.2,2.5,1.5),'#00ffaa');
+        label('肠道通畅', new THREE.Vector3(-2.2,4.0,1.5),'#00ffaa');
+        label('肚子舒服!', new THREE.Vector3(0,6.5,2.0),'#44ffaa');
       }
     }
 
-    function advanceStage() {
-      if (currentStage < STAGES-1) enterStage(currentStage+1);
-      else { actionBtn.textContent='再看一次'; actionBtn.classList.add('show'); }
+    function advance(){
+      if(currentStage<STAGES-1) enterStage(currentStage+1);
+      else { actBtn.textContent='再看一次'; actBtn.classList.add('show'); }
     }
-    window.nextStage = advanceStage;
-    renderer.domElement.addEventListener('click', () => {
-      if (currentStage===-1) enterStage(0); else advanceStage();
+    window.nextStage=()=>{ enterStage(0); actBtn.classList.remove('show'); };
+
+    // 点击推进
+    renderer.domElement.addEventListener('click',()=>{ if(currentStage>=0) advance(); });
+    introOv.addEventListener('click',()=>{
+      introOv.classList.add('hidden');
+      setTimeout(()=>{ introOv.style.display='none'; }, 600);
+      enterStage(0);
     });
 
-    // ===== 相机动画 =====
-    function animateCamera() {
-      if (currentStage<0) return;
-      const cfg = stageConfig[currentStage];
-      const tp = new THREE.Vector3(...cfg.cam), tl = new THREE.Vector3(...cfg.look);
-      camera.position.lerp(tp, 0.02); controls.target.lerp(tl, 0.02);
-    }
-
     // ===== 动画循环 =====
-    let painRingTimer = 0;
-
-    function animate() {
+    function animate(){
       requestAnimationFrame(animate);
-      const dt = Math.min(clock.getDelta(), 0.05);
-      const elapsed = clock.getElapsedTime();
-      stageTime += dt;
-      controls.update(); animateCamera();
+      const dt=Math.min(clock.getDelta(),0.05);
+      const t=clock.getElapsedTime();
+      stageTime+=dt;
+      controls.update();
 
-      const蠕动 = Math.sin(elapsed*1.5)*0.01;
-      smallIntestine.mesh.position.y = 蠕动*0.5;
-      largeIntestine.mesh.position.y = 蠕动*0.3;
-
-      if (currentStage===0) {
-        foodParticles.forEach(b => {
-          b.userData.progress += b.userData.speed*dt;
-          if (b.userData.progress>1) b.userData.progress=0.05;
-          const c = b.userData.path==='small' ? smallIntestine.curve : largeIntestine.curve;
-          b.position.lerp(c.getPointAt(Math.min(b.userData.progress,0.99)), 0.1);
-          b.rotation.y += dt*2;
-        });
-      } else if (currentStage===1) {
-        foodParticles.forEach(b => {
-          b.userData.progress += b.userData.speed*dt;
-          if (b.userData.progress>0.85) b.userData.progress=0.85;
-          b.position.lerp(largeIntestine.curve.getPointAt(Math.min(b.userData.progress,0.99)), 0.05);
-          const dryness = Math.min(stageTime/10,1);
-          b.scale.setScalar(1-dryness*0.4);
-          b.material.color.setHex(lerpColor(b.userData.originalColor, 0x8B6914, dryness));
-        });
-        gasParticles.forEach(w => {
-          const u=w.userData; u.phase+=u.speed*dt; u.radius+=dt*0.15;
-          const c=largeIntestine.curve.getPointAt(u.centerT);
-          w.position.set(c.x+Math.cos(u.phase)*u.radius, c.y+Math.sin(u.phase*1.3)*0.15, c.z+Math.sin(u.phase)*u.radius);
-          w.material.opacity = Math.max(0, 0.6-u.radius*2);
-          if (u.radius>0.35) { u.radius=0.1+Math.random()*0.2; u.phase=Math.random()*Math.PI*2; }
-        });
-      } else if (currentStage===2) {
-        poopBlocks.forEach(b => {
-          b.position.x = b.userData.originalPos.x+(Math.random()-0.5)*0.02;
-          b.position.y = b.userData.originalPos.y+(Math.random()-0.5)*0.02;
-        });
-        gasParticles.forEach(b => {
-          b.position.y = b.userData.baseY+Math.sin(elapsed*b.userData.speed+b.userData.phase)*0.15;
-        });
-        const bloat = Math.min(stageTime/12,0.15);
-        bellyShell.scale.set(1.25+bloat, 1.05+bloat*0.5, 0.85+bloat*0.3);
-      } else if (currentStage===3) {
-        const painLevel = Math.min(stageTime/4,1);
-        const throb = Math.sin(elapsed*3)*0.03*painLevel;
-        bellyShell.scale.set(1.4+throb, 1.15+throb*0.5, 0.95+throb*0.3);
-        dangerLight.intensity = 0.4+Math.sin(elapsed*4)*0.3*painLevel;
-        mainLight.color.setHex(lerpColor(0xffeedd,0xff8866,painLevel*0.3));
-
-        painRingTimer += dt;
-        if (painRingTimer>0.8 && painRings.length<6) {
-          painRingTimer=0;
-          const t=0.4+Math.random()*0.3, c=largeIntestine.curve.getPointAt(t);
-          const geo=new THREE.TorusGeometry(0.1,0.02,8,32);
-          const mat=new THREE.MeshBasicMaterial({color:0xff4444,transparent:true,opacity:0.6});
-          const ring=new THREE.Mesh(geo,mat); ring.position.copy(c);
-          ring.userData={age:0,maxAge:2}; bodyGroup.add(ring); painRings.push(ring);
-        }
-        painRings.forEach(r => {
-          r.userData.age+=dt; const s=1+r.userData.age*2; r.scale.set(s,s,s);
-          r.material.opacity=Math.max(0,0.6-r.userData.age/r.userData.maxAge);
-          r.lookAt(camera.position);
-        });
-        for (let i=painRings.length-1;i>=0;i--) {
-          if (painRings[i].userData.age>=painRings[i].userData.maxAge) { bodyGroup.remove(painRings[i]); painRings.splice(i,1); }
-        }
-        pressureArrows.forEach((a,i) => {
-          const p=0.8+Math.sin(elapsed*3+i)*0.3; a.scale.set(p,p,p);
-          a.line.material.transparent=true; a.line.material.opacity=0.5+Math.sin(elapsed*4+i)*0.3;
-        });
-        gasParticles.forEach(b => {
-          const u=b.userData;
-          b.position.y=u.baseY+Math.sin(elapsed*u.speed*2+u.phase)*0.25*painLevel;
-          b.position.x+=Math.sin(elapsed+u.phase)*dt*0.15;
-          b.scale.setScalar(1+Math.sin(elapsed*2+u.phase)*0.3*painLevel);
-        });
-        bodyGroup.position.x = Math.sin(elapsed*6)*0.03*painLevel;
-      } else if (currentStage===4) {
-        const t=Math.min(stageTime/3,1);
-        foodParticles.forEach(b => {
-          b.userData.progress+=b.userData.speed*dt;
-          if (b.userData.progress>1) { b.visible=false; return; }
-          b.position.lerp(largeIntestine.curve.getPointAt(Math.min(b.userData.progress,0.99)),0.15);
-          b.rotation.y+=dt*3;
-        });
-        largeIntestine.mesh.material.color.setHex(lerpColor(0xaa3333,0xff8866,t));
-        smallIntestine.mesh.material.color.setHex(lerpColor(0xcc7766,0xff8866,t));
-        mainLight.color.setHex(lerpColor(0xff8866,0xffeedd,t));
-        dangerLight.intensity=Math.max(0,dangerLight.intensity-dt*0.3);
-        rimLight.intensity=1.0+Math.sin(elapsed*1.5)*0.3;
-        labels.forEach(l => { l.material.opacity=Math.min(t*1.5,0.9); });
-        if (stageTime>5 && !actionBtn.classList.contains('show')) actionBtn.classList.add('show');
+      // 相机跟随
+      if(currentStage>=0){
+        const c=CFG[currentStage];
+        camera.position.lerp(new THREE.Vector3(...c.cam),0.025);
+        controls.target.lerp(new THREE.Vector3(...c.look),0.025);
+      } else {
+        // 开场缓慢旋转
+        camera.position.x=Math.sin(t*0.3)*5;
+        camera.position.z=16+Math.cos(t*0.3)*3;
+        camera.lookAt(0,3.5,0);
       }
 
-      labels.forEach(l => { if(l.parent) l.lookAt(camera.position); });
-      renderer.render(scene, camera);
+      // 肠道蠕动
+      const wobble=Math.sin(t*1.5)*0.015;
+      smallI.mesh.position.y=wobble*0.5;
+      largeI.mesh.position.y=wobble*0.3;
+
+      // 食物动画
+      dynObjs.filter(d=>d.type==='food').forEach(b=>{
+        const u=b.obj.userData;
+        u.progress+=u.speed*dt;
+        if(u.progress>1) u.progress=0.05;
+        const curve=u.path==='small'?smallI.curve:largeI.curve;
+        b.obj.position.lerp(curve.getPointAt(Math.min(u.progress,0.99)),0.12);
+        b.obj.rotation.y+=dt*2;
+      });
+
+      // 水分动画
+      dynObjs.filter(d=>d.type==='water').forEach(w=>{
+        const u=w.obj.userData;
+        u.phase+=u.speed*dt; u.radius+=dt*0.12;
+        const c=largeI.curve.getPointAt(u.centerT);
+        w.obj.position.set(c.x+Math.cos(u.phase)*u.radius, c.y+Math.sin(u.phase*1.3)*0.12, c.z+Math.sin(u.phase)*u.radius);
+        w.obj.material.opacity=Math.max(0,0.7-u.radius*2.5);
+        if(u.radius>0.3){u.radius=0.1+Math.random()*0.15; u.phase=Math.random()*Math.PI*2;}
+      });
+
+      // 气泡动画
+      dynObjs.filter(d=>d.type==='gas').forEach(b=>{
+        const u=b.obj.userData;
+        const intensity=currentStage===3?2.5:1;
+        b.obj.position.y=u.baseY+Math.sin(t*u.speed+u.phase)*0.2*intensity;
+        b.obj.position.x+=Math.sin(t*0.5+u.phase)*dt*0.08*intensity;
+        b.obj.scale.setScalar(1+Math.sin(t*2+u.phase)*0.2*(currentStage===3?2:0.5));
+      });
+
+      // 便便硬块抖动
+      dynObjs.filter(d=>d.type==='poop').forEach(p=>{
+        p.obj.position.x=p.obj.userData.origPos.x+(Math.random()-0.5)*0.015;
+        p.obj.position.y=p.obj.userData.origPos.y+(Math.random()-0.5)*0.015;
+      });
+
+      // 阶段特殊效果
+      if(currentStage===1){
+        // 食物变干
+        const dryness=Math.min(stageTime/10,1);
+        dynObjs.filter(d=>d.type==='food').forEach(b=>{
+          b.obj.scale.setScalar(1-dryness*0.35);
+          b.obj.material.color.setHex(lerp3(b.obj.userData.origColor,0x8B6914,dryness));
+        });
+      }
+
+      if(currentStage===2){
+        const bloat=Math.min(stageTime/12,0.15);
+        belly.scale.set(1.25+bloat,1.06+bloat*0.5,0.85+bloat*0.3);
+      }
+
+      if(currentStage===3){
+        const pain=Math.min(stageTime/4,1);
+        const throb=Math.sin(t*3)*0.04*pain;
+        belly.scale.set(1.4+throb,1.15+throb*0.5,0.95+throb*0.3);
+        dangerLight.intensity=0.5+Math.sin(t*4)*0.4*pain;
+        sunLight.color.setHex(lerp3(0xfff0dd,0xff8866,pain*0.4));
+
+        // 疼痛波纹
+        dynObjs.filter(d=>d.type==='ring').forEach(r=>{
+          r.obj.userData.age+=dt;
+          const s=1+r.obj.userData.age*1.5;
+          r.obj.scale.set(s,s,s);
+          r.obj.material.opacity=Math.max(0,0.5-r.obj.userData.age/r.obj.userData.maxAge);
+          r.obj.lookAt(camera.position);
+          // 循环
+          if(r.obj.userData.age>=r.obj.userData.maxAge) r.obj.userData.age=0;
+        });
+
+        // 箭头脉动
+        dynObjs.filter(d=>d.type==='arrow').forEach((a,i)=>{
+          const p=0.7+Math.sin(t*3+i)*0.4;
+          a.obj.scale.set(p,p,p);
+        });
+
+        body.position.x=Math.sin(t*6)*0.04*pain;
+      }
+
+      if(currentStage===4){
+        const progress=Math.min(stageTime/3,1);
+        largeI.mesh.material.color.setHex(lerp3(0xaa3333,0xff8866,progress));
+        smallI.mesh.material.color.setHex(lerp3(0xcc7766,0xff8866,progress));
+        sunLight.color.setHex(lerp3(0xff8866,0xfff0dd,progress));
+        dangerLight.intensity=Math.max(0,dangerLight.intensity-dt*0.4);
+        fillB.intensity=1.0+Math.sin(t*1.5)*0.4;
+
+        if(stageTime>5&&!actBtn.classList.contains('show')) actBtn.classList.add('show');
+      }
+
+      // 标注朝向相机
+      labels.forEach(l=>{if(l.parent)l.lookAt(camera.position);});
+
+      renderer.render(scene,camera);
     }
 
-    window.addEventListener('resize', () => {
+    window.addEventListener('resize',()=>{
       camera.aspect=window.innerWidth/window.innerHeight;
       camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);
     });
