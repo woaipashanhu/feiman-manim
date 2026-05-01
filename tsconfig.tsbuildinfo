@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/gradesection.tsx","./src/components/videocard.tsx","./src/data/videos.ts","./src/pages/home.tsx","./src/pages/player.tsx"],"version":"5.6.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/gradesection.tsx","./src/components/sciencecard.tsx","./src/components/sciencesection.tsx","./src/components/videocard.tsx","./src/data/science.ts","./src/data/videos.ts","./src/pages/home.tsx","./src/pages/player.tsx","./src/pages/scienceviewer.tsx"],"version":"5.6.3"}

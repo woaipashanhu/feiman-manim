@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>便便大冒险 - 养成良好排便习惯</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #1a1a2e; font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    #canvas-container { width: 100vw; height: 100vh; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    /* 阶段提示 */
+    #stage-hint {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+      color: #fff; padding: 12px 28px; border-radius: 30px;
+      font-size: 16px; text-align: center; z-index: 100;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: all 0.5s ease;
+      max-width: 90vw;
+    }
+    #stage-hint .emoji { font-size: 24px; display: block; margin-bottom: 4px; }
+
+    /* 进度条 */
+    #progress-bar {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 8px; z-index: 100;
+    }
+    .dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      transition: all 0.4s ease;
+    }
+    .dot.active { background: #00d4aa; transform: scale(1.3); }
+    .dot.done { background: #00d4aa; opacity: 0.5; }
+
+    /* 标题 */
+    #title-overlay {
+      position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+      color: #fff; text-align: center; z-index: 100;
+      opacity: 0; transition: opacity 0.8s ease;
+    }
+    #title-overlay.show { opacity: 1; }
+    #title-overlay h1 {
+      font-size: 28px; font-weight: 700;
+      background: linear-gradient(135deg, #00d4aa, #00b4d8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    #title-overlay p { font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 6px; }
+
+    /* 交互按钮 */
+    .action-btn {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      padding: 14px 36px; border-radius: 30px; border: none;
+      font-size: 16px; font-weight: 600; cursor: pointer; z-index: 100;
+      transition: all 0.3s ease; display: none;
+      font-family: inherit;
+    }
+    .action-btn:hover { transform: translateX(-50%) scale(1.05); }
+    .action-btn:active { transform: translateX(-50%) scale(0.95); }
+    .action-btn.show { display: block; animation: fadeInUp 0.5s ease; }
+    .btn-green { background: linear-gradient(135deg, #00d4aa, #00b4d8); color: #fff; box-shadow: 0 4px 20px rgba(0,212,170,0.3); }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    /* 快捷键提示 */
+    #key-hint {
+      position: fixed; bottom: 20px; right: 20px;
+      color: rgba(255,255,255,0.2); font-size: 12px; z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="progress-bar"></div>
+
+  <div id="title-overlay">
+    <h1>便便大冒险</h1>
+    <p>养成良好排便习惯</p>
+  </div>
+
+  <div id="stage-hint">
+    <span class="emoji">🍽️</span>
+    点击屏幕开始
+  </div>
+
+  <button class="action-btn btn-green" id="action-btn" onclick="nextStage()">继续</button>
+
+  <div id="key-hint">拖拽旋转 · 滚轮缩放 · 点击推进</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.184.0/build/three.module.min.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js';
+
+    // ===== 全局配置 =====
+    const WIDTH = window.innerWidth;
+    const HEIGHT = window.innerHeight;
+    const STAGES = 5;
+
+    let currentStage = -1; // -1=开场, 0-4=五个阶段
+    let stageTime = 0;
+    let autoAdvance = false;
+
+    // ===== 场景初始化 =====
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+    scene.fog = new THREE.FogExp2(0x1a1a2e, 0.008);
+
+    const camera = new THREE.PerspectiveCamera(50, WIDTH / HEIGHT, 0.1, 500);
+    camera.position.set(0, 4, 18);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(WIDTH, HEIGHT);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.maxDistance = 35;
+    controls.minDistance = 8;
+    controls.maxPolarAngle = Math.PI * 0.75;
+    controls.target.set(0, 2, 0);
+
+    // ===== 灯光 =====
+    const ambientLight = new THREE.AmbientLight(0x404060, 0.8);
+    scene.add(ambientLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffeedd, 1.2);
+    mainLight.position.set(8, 15, 10);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.set(1024, 1024);
+    scene.add(mainLight);
+
+    const rimLight = new THREE.PointLight(0x00d4aa, 0.5, 30);
+    rimLight.position.set(-5, 8, -5);
+    scene.add(rimLight);
+
+    const warmLight = new THREE.PointLight(0xffaa44, 0.4, 25);
+    warmLight.position.set(5, 6, 8);
+    scene.add(warmLight);
+
+    // ===== 辅助函数 =====
+    function createRoundedBox(w, h, d, r, color) {
+      const shape = new THREE.Shape();
+      const hw = w/2 - r, hh = h/2 - r;
+      shape.moveTo(-hw, -h/2);
+      shape.lineTo(hw, -h/2);
+      shape.quadraticCurveTo(w/2, -h/2, w/2, -hh);
+      shape.lineTo(w/2, hh);
+      shape.quadraticCurveTo(w/2, h/2, hw, h/2);
+      shape.lineTo(-hw, h/2);
+      shape.quadraticCurveTo(-w/2, h/2, -w/2, hh);
+      shape.lineTo(-w/2, -hh);
+      shape.quadraticCurveTo(-w/2, -h/2, -hw, -h/2);
+
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 3 });
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI/2;
+      mesh.castShadow = true;
+      return mesh;
+    }
+
+    function createSphere(r, color, opts = {}) {
+      const geo = new THREE.SphereGeometry(r, 32, 24);
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: opts.roughness || 0.5, metalness: opts.metalness || 0.05, transparent: !!opts.opacity, opacity: opts.opacity || 1 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      return mesh;
+    }
+
+    function createCylinder(rT, rB, h, color) {
+      const geo = new THREE.CylinderGeometry(rT, rB, h, 32);
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.05 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      return mesh;
+    }
+
+    function createTorus(R, r, color) {
+      const geo = new THREE.TorusGeometry(R, r, 16, 48);
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.1 });
+      const mesh = new THREE.Mesh(geo, mat);
+      return mesh;
+    }
+
+    // ===== 地面 =====
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(20, 64),
+      new THREE.MeshStandardMaterial({ color: 0x1a1a3e, roughness: 0.9 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.5;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // ===== 创建卡通小人 =====
+    function createCharacter(skinColor = 0xffccaa) {
+      const group = new THREE.Group();
+
+      // 身体（圆润的椭球）
+      const body = createSphere(1.0, 0x4488ff);
+      body.scale.set(0.9, 1.1, 0.7);
+      body.position.y = 2.8;
+      group.add(body);
+
+      // 肚子（重要！会随阶段变化）
+      const belly = createSphere(0.85, skinColor);
+      belly.scale.set(0.9, 1.0, 0.65);
+      belly.position.set(0, 2.7, 0.3);
+      group.add(belly);
+
+      // 头
+      const head = createSphere(0.75, skinColor);
+      head.position.y = 4.3;
+      group.add(head);
+
+      // 眼睛
+      const eyeWhiteGeo = new THREE.SphereGeometry(0.15, 16, 12);
+      const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+      const eyeBlackGeo = new THREE.SphereGeometry(0.08, 12, 8);
+      const eyeBlackMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+      [-0.22, 0.22].forEach(x => {
+        const white = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+        white.position.set(x, 4.4, 0.6);
+        group.add(white);
+        const pupil = new THREE.Mesh(eyeBlackGeo, eyeBlackMat);
+        pupil.position.set(x, 4.42, 0.72);
+        group.add(pupil);
+      });
+
+      // 嘴巴（会根据表情变化）
+      const mouthGroup = new THREE.Group();
+      mouthGroup.position.set(0, 4.05, 0.7);
+
+      // 开心的嘴巴（弧线）
+      const smileCurve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(-0.15, 0, 0),
+        new THREE.Vector3(0, -0.1, 0.05),
+        new THREE.Vector3(0.15, 0, 0)
+      );
+      const smileGeo = new THREE.TubeGeometry(smileCurve, 12, 0.03, 8, false);
+      const smileMat = new THREE.MeshStandardMaterial({ color: 0xcc5544 });
+      const smile = new THREE.Mesh(smileGeo, smileMat);
+      mouthGroup.add(smile);
+
+      // 难过的嘴巴（反弧）
+      const sadCurve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(-0.15, -0.05, 0),
+        new THREE.Vector3(0, 0.08, 0.05),
+        new THREE.Vector3(0.15, -0.05, 0)
+      );
+      const sadGeo = new THREE.TubeGeometry(sadCurve, 12, 0.03, 8, false);
+      const sadMat = new THREE.MeshStandardMaterial({ color: 0xcc5544 });
+      const sadMouth = new THREE.Mesh(sadGeo, sadMat);
+      sadMouth.visible = false;
+      mouthGroup.add(sadMouth);
+
+      group.add(mouthGroup);
+
+      // 手臂
+      const armGeo = new THREE.CylinderGeometry(0.12, 0.1, 1.2, 12);
+      const armMat = new THREE.MeshStandardMaterial({ color: skinColor });
+      const leftArm = new THREE.Mesh(armGeo, armMat);
+      leftArm.position.set(-1.1, 3.0, 0);
+      leftArm.rotation.z = 0.3;
+      group.add(leftArm);
+
+      const rightArm = new THREE.Mesh(armGeo, armMat);
+      rightArm.position.set(1.1, 3.0, 0);
+      rightArm.rotation.z = -0.3;
+      group.add(rightArm);
+
+      // 腿
+      const legGeo = new THREE.CylinderGeometry(0.15, 0.12, 1.0, 12);
+      const legMat = new THREE.MeshStandardMaterial({ color: 0x335599 });
+      const leftLeg = new THREE.Mesh(legGeo, legMat);
+      leftLeg.position.set(-0.35, 1.3, 0);
+      group.add(leftLeg);
+
+      const rightLeg = new THREE.Mesh(legGeo, legMat);
+      rightLeg.position.set(0.35, 1.3, 0);
+      group.add(rightLeg);
+
+      // 脚
+      const footGeo = new THREE.SphereGeometry(0.18, 12, 8);
+      const footMat = new THREE.MeshStandardMaterial({ color: 0x444466 });
+      const leftFoot = new THREE.Mesh(footGeo, footMat);
+      leftFoot.scale.set(1, 0.5, 1.4);
+      leftFoot.position.set(-0.35, 0.85, 0.1);
+      group.add(leftFoot);
+      const rightFoot = new THREE.Mesh(footGeo, footMat);
+      rightFoot.scale.set(1, 0.5, 1.4);
+      rightFoot.position.set(0.35, 0.85, 0.1);
+      group.add(rightFoot);
+
+      group.userData = { body, belly, head, mouthGroup, smile, sadMouth, leftArm, rightArm, leftLeg, rightLeg };
+      return group;
+    }
+
+    // ===== 创建便便角色 =====
+    function createPoop(size = 1, color = 0x8B6914) {
+      const group = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.0 });
+
+      // 三层堆叠的椭球
+      const layers = [
+        { y: 0, sx: 0.35, sy: 0.2, sz: 0.35 },
+        { y: 0.25, sx: 0.3, sy: 0.2, sz: 0.3 },
+        { y: 0.45, sx: 0.22, sy: 0.18, sz: 0.22 },
+      ];
+
+      layers.forEach(l => {
+        const geo = new THREE.SphereGeometry(1, 20, 14);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.scale.set(l.sx * size, l.sy * size, l.sz * size);
+        mesh.position.y = l.y * size;
+        mesh.castShadow = true;
+        group.add(mesh);
+      });
+
+      // 可爱的眼睛
+      const eyeW = new THREE.SphereGeometry(0.06 * size, 10, 8);
+      const eyeWM = new THREE.MeshStandardMaterial({ color: 0xffffff });
+      const eyeB = new THREE.SphereGeometry(0.035 * size, 8, 6);
+      const eyeBM = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+      [-0.1, 0.1].forEach(x => {
+        const w = new THREE.Mesh(eyeW, eyeWM);
+        w.position.set(x * size, 0.48 * size, 0.2 * size);
+        group.add(w);
+        const b = new THREE.Mesh(eyeB, eyeBM);
+        b.position.set(x * size, 0.5 * size, 0.25 * size);
+        group.add(b);
+      });
+
+      // 微笑
+      const smileC = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(-0.08 * size, 0, 0),
+        new THREE.Vector3(0, -0.05 * size, 0.03 * size),
+        new THREE.Vector3(0.08 * size, 0, 0)
+      );
+      const sGeo = new THREE.TubeGeometry(smileC, 8, 0.015 * size, 6, false);
+      const sMat = new THREE.MeshStandardMaterial({ color: 0x553311 });
+      group.add(new THREE.Mesh(sGeo, sMat));
+
+      return group;
+    }
+
+    // ===== 创建食物 =====
+    function createFood(type) {
+      const group = new THREE.Group();
+      if (type === 'apple') {
+        const body = createSphere(0.4, 0xff3333);
+        body.scale.set(0.9, 0.85, 0.9);
+        group.add(body);
+        const stem = createCylinder(0.02, 0.02, 0.2, 0x664422);
+        stem.position.y = 0.45;
+        group.add(stem);
+        const leaf = new THREE.Mesh(
+          new THREE.SphereGeometry(0.1, 8, 6),
+          new THREE.MeshStandardMaterial({ color: 0x44aa44 })
+        );
+        leaf.scale.set(1, 0.4, 1.6);
+        leaf.position.set(0.08, 0.5, 0);
+        leaf.rotation.z = 0.5;
+        group.add(leaf);
+      } else if (type === 'carrot') {
+        const body = new THREE.Mesh(
+          new THREE.ConeGeometry(0.2, 0.7, 12),
+          new THREE.MeshStandardMaterial({ color: 0xff8833 })
+        );
+        body.rotation.x = Math.PI;
+        body.position.y = 0.35;
+        body.castShadow = true;
+        group.add(body);
+        const leafG = createCylinder(0.02, 0.01, 0.3, 0x44aa44);
+        leafG.position.y = 0.7;
+        group.add(leafG);
+      } else {
+        const body = createSphere(0.35, 0xffcc44);
+        body.scale.set(0.85, 0.75, 0.85);
+        group.add(body);
+      }
+      return group;
+    }
+
+    // ===== 创建肠道（半透明管道） =====
+    function createIntestine(pathPoints, color = 0xff8866) {
+      const curve = new THREE.CatmullRomCurve3(pathPoints);
+      const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.4, 20, false);
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.35,
+        roughness: 0.3,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+      });
+      const tube = new THREE.Mesh(tubeGeo, tubeMat);
+      return { mesh: tube, curve };
+    }
+
+    // ===== 创建星星/粒子 =====
+    function createParticles(count, spread, color, size = 0.08) {
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        positions[i*3] = (Math.random() - 0.5) * spread;
+        positions[i*3+1] = Math.random() * spread * 0.6;
+        positions[i*3+2] = (Math.random() - 0.5) * spread;
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0.6 });
+      return new THREE.Points(geo, mat);
+    }
+
+    // ===== 场景对象 =====
+    const character = createCharacter(0xffccaa);
+    scene.add(character);
+
+    // 便便们
+    const poops = [];
+    const poopGroup = new THREE.Group();
+    scene.add(poopGroup);
+
+    // 食物们
+    const foods = [];
+    const foodGroup = new THREE.Group();
+    scene.add(foodGroup);
+
+    // 肠道
+    let intestine = null;
+
+    // 星星粒子（快乐阶段）
+    const happyParticles = createParticles(80, 12, 0x00d4aa, 0.1);
+    happyParticles.visible = false;
+    scene.add(happyParticles);
+
+    // 痛苦粒子（肚子疼阶段）
+    const painParticles = createParticles(30, 5, 0xff4444, 0.12);
+    painParticles.visible = false;
+    scene.add(painParticles);
+
+    // 食物列表
+    const foodTypes = ['apple', 'carrot', 'bread', 'apple', 'carrot'];
+
+    // ===== 阶段配置 =====
+    const stageConfig = [
+      {
+        emoji: '🍽️',
+        title: '快乐进食',
+        hint: '宝贝吃了很多好吃的！',
+        bgColor: 0x1a2a3e,
+      },
+      {
+        emoji: '⏰',
+        title: '时间流逝',
+        hint: '但是...忘记去厕所了',
+        bgColor: 0x2a1a3e,
+      },
+      {
+        emoji: '😣',
+        title: '肚子好痛',
+        hint: '便便堵在肚子里，好难受啊！',
+        bgColor: 0x3e1a1a,
+      },
+      {
+        emoji: '🚽',
+        title: '上厕所啦',
+        hint: '便便出来了！',
+        bgColor: 0x1a3e2a,
+      },
+      {
+        emoji: '😊',
+        title: '轻松啦！',
+        hint: '每天按时排便，肚子就不会痛啦！',
+        bgColor: 0x1a3e3e,
+      }
+    ];
+
+    // ===== UI 更新 =====
+    const stageHint = document.getElementById('stage-hint');
+    const progressBar = document.getElementById('progress-bar');
+    const titleOverlay = document.getElementById('title-overlay');
+    const actionBtn = document.getElementById('action-btn');
+
+    // 初始化进度点
+    for (let i = 0; i < STAGES; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.dataset.index = i;
+      progressBar.appendChild(dot);
+    }
+
+    function updateUI(stageIdx) {
+      // 更新进度点
+      progressBar.querySelectorAll('.dot').forEach((d, i) => {
+        d.className = 'dot';
+        if (i < stageIdx) d.classList.add('done');
+        else if (i === stageIdx) d.classList.add('active');
+      });
+
+      if (stageIdx >= 0 && stageIdx < stageConfig.length) {
+        const cfg = stageConfig[stageIdx];
+        stageHint.innerHTML = `<span class="emoji">${cfg.emoji}</span>${cfg.hint}`;
+        stageHint.style.opacity = '1';
+        titleOverlay.querySelector('h1').textContent = cfg.title;
+        titleOverlay.querySelector('p').textContent = cfg.hint;
+        titleOverlay.classList.add('show');
+        setTimeout(() => titleOverlay.classList.remove('show'), 3000);
+      }
+    }
+
+    // ===== 阶段逻辑 =====
+    function enterStage(idx) {
+      currentStage = idx;
+      stageTime = 0;
+      updateUI(idx);
+      scene.background.set(stageConfig[idx].bgColor);
+      scene.fog.color.set(stageConfig[idx].bgColor);
+
+      // 清理上一阶段
+      while (poopGroup.children.length) poopGroup.remove(poopGroup.children[0]);
+      while (foodGroup.children.length) foodGroup.remove(foodGroup.children[0]);
+      if (intestine) { scene.remove(intestine.mesh); intestine = null; }
+
+      // 重置角色状态
+      const ud = character.userData;
+      ud.belly.scale.set(0.9, 1.0, 0.65);
+      character.visible = true;
+      happyParticles.visible = false;
+      painParticles.visible = false;
+      ud.smile.visible = true;
+      ud.sadMouth.visible = false;
+      character.position.set(0, 0, 0);
+      character.rotation.y = 0;
+      actionBtn.classList.remove('show');
+
+      if (idx === 0) {
+        // 阶段0：快乐进食 - 食物飞向嘴巴
+        foodTypes.forEach((type, i) => {
+          const food = createFood(type);
+          food.position.set(-6 + i * 3, 6, 2);
+          food.userData.targetDelay = i * 0.8;
+          food.userData.eaten = false;
+          foodGroup.add(food);
+          foods.push(food);
+        });
+      } else if (idx === 1) {
+        // 阶段1：时间流逝 - 肚子微微胀大
+        character.rotation.y = 0.3;
+      } else if (idx === 2) {
+        // 阶段2：肚子疼 - 肚子大、表情痛苦、便便堵在肠道
+        character.rotation.y = -0.2;
+        ud.sadMouth.visible = true;
+        ud.smile.visible = false;
+        painParticles.visible = true;
+        painParticles.position.copy(character.position);
+        painParticles.position.y += 3;
+
+        // 肠道可视化
+        const intPath = [
+          new THREE.Vector3(0, 2.5, 0.2),
+          new THREE.Vector3(0.5, 2.8, 0.4),
+          new THREE.Vector3(0.3, 2.2, 0.5),
+          new THREE.Vector3(-0.3, 2.5, 0.4),
+          new THREE.Vector3(0, 2.0, 0.3),
+          new THREE.Vector3(0.4, 1.8, 0.2),
+        ];
+        intestine = createIntestine(intPath, 0xff6644);
+        character.add(intestine.mesh);
+
+        // 便便堵在肠道里
+        for (let i = 0; i < 3; i++) {
+          const p = createPoop(0.4);
+          p.position.set(
+            (Math.random() - 0.5) * 0.4,
+            2.0 + i * 0.4,
+            0.5
+          );
+          character.add(p);
+          poops.push(p);
+        }
+      } else if (idx === 3) {
+        // 阶段3：上厕所 - 便便排出来
+        character.rotation.y = 0.4;
+        // 马桶
+        const toiletGroup = new THREE.Group();
+        const toiletBase = createCylinder(0.8, 0.7, 0.8, 0xeeeeee);
+        toiletBase.position.set(2, 0.2, 0);
+        toiletGroup.add(toiletBase);
+        const toiletSeat = createTorus(0.6, 0.12, 0xdddddd);
+        toiletSeat.position.set(2, 0.65, 0);
+        toiletSeat.rotation.x = Math.PI / 2;
+        toiletGroup.add(toiletSeat);
+        const toiletBack = createRoundedBox(0.3, 1.2, 1.6, 0.1, 0xeeeeee);
+        toiletBack.position.set(2, 1.0, -0.7);
+        toiletGroup.add(toiletBack);
+        scene.add(toiletGroup);
+        toiletGroup.userData = { isToilet: true };
+        poops.push(toiletGroup);
+
+        // 肠道里的便便还在
+        for (let i = 0; i < 2; i++) {
+          const p = createPoop(0.35);
+          p.position.set(
+            (Math.random() - 0.5) * 0.3,
+            2.0 + i * 0.4,
+            0.5
+          );
+          character.add(p);
+          poops.push(p);
+        }
+      } else if (idx === 4) {
+        // 阶段4：轻松愉快 - 便便消失，星星环绕
+        character.rotation.y = 0;
+        ud.smile.visible = true;
+        ud.sadMouth.visible = false;
+        happyParticles.visible = true;
+        happyParticles.position.copy(character.position);
+
+        // 飞走的便便（远处）
+        for (let i = 0; i < 3; i++) {
+          const p = createPoop(0.5);
+          p.position.set(5 + i * 2, 1 + i * 0.5, -3 - i);
+          p.rotation.y = 0.5 * i;
+          poopGroup.add(p);
+        }
+      }
+    }
+
+    // 点击推进阶段
+    function advanceStage() {
+      if (currentStage < STAGES - 1) {
+        enterStage(currentStage + 1);
+      } else {
+        // 循环回第一阶段
+        enterStage(0);
+      }
+    }
+    window.nextStage = advanceStage;
+
+    renderer.domElement.addEventListener('click', (e) => {
+      if (currentStage === -1) {
+        enterStage(0);
+      } else {
+        advanceStage();
+      }
+    });
+
+    // ===== 动画循环 =====
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      const elapsed = clock.getElapsedTime();
+
+      controls.update();
+      stageTime += dt;
+
+      const ud = character.userData;
+
+      // 呼吸动画
+      const breathe = Math.sin(elapsed * 2) * 0.03;
+      if (ud.body) ud.body.scale.y = 1.1 + breathe;
+
+      // 根据阶段更新
+      if (currentStage === -1) {
+        // 开场：角色轻微摇摆
+        character.rotation.y = Math.sin(elapsed * 0.5) * 0.2;
+        camera.position.set(
+          Math.sin(elapsed * 0.2) * 15,
+          5 + Math.sin(elapsed * 0.3),
+          16 + Math.cos(elapsed * 0.2) * 5
+        );
+        controls.target.set(0, 2.5, 0);
+      } else if (currentStage === 0) {
+        // 阶段0：食物飞向角色
+        foods.forEach(food => {
+          const delay = food.userData.targetDelay || 0;
+          const t = Math.max(0, (stageTime - delay) / 1.5);
+          if (t > 0 && t < 1 && !food.userData.eaten) {
+            food.position.lerp(
+              new THREE.Vector3(0, 4.3, 0.7),
+              t * 0.05
+            );
+            food.rotation.y += dt * 3;
+            // 食物缩小（被吃掉）
+            if (t > 0.7) {
+              const shrink = 1 - (t - 0.7) / 0.3;
+              food.scale.setScalar(Math.max(0.01, shrink));
+            }
+            if (t >= 1) {
+              food.userData.eaten = true;
+              food.visible = false;
+              // 肚子微微长大
+              const bellyScale = 1 + (foods.filter(f => f.userData.eaten).length) * 0.04;
+              ud.belly.scale.set(0.9 * bellyScale, 1.0 * bellyScale, 0.65 * bellyScale);
+            }
+          }
+        });
+
+        // 角色开心摆手
+        ud.leftArm.rotation.z = 0.3 + Math.sin(elapsed * 3) * 0.3;
+        ud.rightArm.rotation.z = -0.3 - Math.sin(elapsed * 3 + 1) * 0.3;
+
+      } else if (currentStage === 1) {
+        // 阶段1：时间流逝，肚子慢慢胀大
+        const bloat = Math.min(stageTime / 8, 1) * 0.35;
+        ud.belly.scale.set(0.9 + bloat, 1.0 + bloat * 0.8, 0.65 + bloat * 0.5);
+
+        // 表情从开心变不安
+        if (stageTime > 4) {
+          ud.smile.visible = false;
+          ud.sadMouth.visible = true;
+        }
+
+        // 微微晃动（不舒服）
+        if (stageTime > 3) {
+          character.position.x = Math.sin(elapsed * 1.5) * 0.1;
+        }
+
+        // 相机缓慢推进
+        camera.position.z = 18 - stageTime * 0.3;
+
+      } else if (currentStage === 2) {
+        // 阶段2：肚子疼
+        const painLevel = Math.min(stageTime / 3, 1);
+
+        // 肚子更大
+        const bloat = 0.35 + painLevel * 0.2;
+        ud.belly.scale.set(0.9 + bloat, 1.0 + bloat * 0.8, 0.65 + bloat * 0.5);
+
+        // 疼痛抖动
+        const shake = Math.sin(elapsed * 8) * 0.05 * painLevel;
+        character.position.x = shake;
+        character.position.y = Math.abs(shake) * 0.3;
+
+        // 手捂肚子
+        ud.leftArm.rotation.z = 0.3 + Math.sin(elapsed * 2) * 0.1;
+        ud.leftArm.rotation.x = -0.8;
+        ud.rightArm.rotation.z = -0.3 - Math.sin(elapsed * 2 + 0.5) * 0.1;
+        ud.rightArm.rotation.x = -0.8;
+
+        // 痛苦粒子闪烁
+        painParticles.material.opacity = 0.3 + Math.sin(elapsed * 5) * 0.3;
+        if (painParticles.geometry) {
+          const pos = painParticles.geometry.attributes.position;
+          for (let i = 0; i < pos.count; i++) {
+            pos.array[i * 3 + 1] += dt * (0.5 + Math.sin(elapsed + i) * 0.3);
+            if (pos.array[i * 3 + 1] > 4) pos.array[i * 3 + 1] = 2;
+          }
+          pos.needsUpdate = true;
+        }
+
+        // 灯光变红
+        mainLight.color.setHex(
+          lerpColor(0xffeedd, 0xff6644, painLevel * 0.5)
+        );
+
+      } else if (currentStage === 3) {
+        // 阶段3：上厕所
+        const progress = Math.min(stageTime / 5, 1);
+
+        // 便便从肠道移动到马桶
+        poops.forEach((p, i) => {
+          if (p.userData.isToilet) return;
+          const delay = i * 0.5;
+          const t = Math.max(0, (stageTime - delay - 1) / 2);
+          if (t > 0 && t < 1) {
+            p.position.x += dt * 1.5;
+            p.position.z += dt * 0.5;
+            p.position.y -= dt * 0.8;
+            p.rotation.y += dt * 2;
+            if (p.position.y < 0.6) {
+              p.position.y = 0.6;
+            }
+          }
+        });
+
+        // 肚子慢慢缩小
+        const bellySize = 1.55 - progress * 0.55;
+        ud.belly.scale.set(0.9 * bellySize, bellySize, 0.65 * bellySize);
+
+        // 表情逐渐变开心
+        if (progress > 0.5) {
+          ud.sadMouth.visible = false;
+          ud.smile.visible = true;
+        }
+
+        // 灯光恢复
+        mainLight.color.lerp(new THREE.Color(0xffeedd), dt * 2);
+
+      } else if (currentStage === 4) {
+        // 阶段4：轻松愉快
+        const celebrate = Math.min(stageTime / 2, 1);
+
+        // 肚子恢复正常
+        ud.belly.scale.set(0.9, 1.0, 0.65);
+
+        // 开心摆手
+        ud.leftArm.rotation.z = 0.3 + Math.sin(elapsed * 4) * 0.4 * celebrate;
+        ud.leftArm.rotation.x = -0.3 * celebrate;
+        ud.rightArm.rotation.z = -0.3 - Math.sin(elapsed * 4 + 1) * 0.4 * celebrate;
+        ud.rightArm.rotation.x = -0.3 * celebrate;
+
+        // 角色轻轻跳动
+        character.position.y = Math.abs(Math.sin(elapsed * 3)) * 0.3 * celebrate;
+
+        // 星星旋转
+        happyParticles.rotation.y += dt * 0.5;
+        if (happyParticles.geometry) {
+          const pos = happyParticles.geometry.attributes.position;
+          for (let i = 0; i < pos.count; i++) {
+            const angle = elapsed * 0.3 + i * 0.1;
+            pos.array[i * 3] += Math.sin(angle) * dt * 0.1;
+            pos.array[i * 3 + 1] += Math.cos(angle + i) * dt * 0.05;
+          }
+          pos.needsUpdate = true;
+        }
+        happyParticles.material.opacity = 0.4 + Math.sin(elapsed * 2) * 0.2;
+
+        // 便便飞远
+        poopGroup.children.forEach((p, i) => {
+          p.position.x += dt * 1.5;
+          p.position.y += dt * 0.5;
+          p.rotation.y += dt * 2;
+        });
+
+        // 绿光
+        rimLight.intensity = 1.0 + Math.sin(elapsed * 2) * 0.3;
+
+        // 显示完成提示
+        if (stageTime > 4 && !actionBtn.classList.contains('show')) {
+          actionBtn.textContent = '再看一次';
+          actionBtn.classList.add('show');
+          autoAdvance = false;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    function lerpColor(a, b, t) {
+      const ca = new THREE.Color(a);
+      const cb = new THREE.Color(b);
+      ca.lerp(cb, t);
+      return ca.getHex();
+    }
+
+    // ===== 窗口适配 =====
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ===== 启动 =====
+    animate();
+
+    // 3秒后显示开始提示
+    setTimeout(() => {
+      stageHint.style.opacity = '1';
+    }, 500);
+  </script>
+</body>
+</html>

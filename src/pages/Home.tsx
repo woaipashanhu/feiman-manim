@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { grades } from '../data/videos';
 import GradeSection from '../components/GradeSection';
+import ScienceSection from '../components/ScienceSection';
 
 export default function Home() {
   const [updating, setUpdating] = useState(false);
@@ -31,14 +32,14 @@ export default function Home() {
 
             {/* 网站标题 */}
             <h1 className="text-2xl sm:text-3xl font-display text-white/90 tracking-wide">
-              刘费曼的数学课
+              刘费曼的科学课
             </h1>
           </div>
         </div>
 
         {/* 网站简介（SEO友好） */}
         <p className="max-w-7xl mx-auto mt-3 text-sm text-white/40 leading-relaxed">
-          用动画图形呈现数学思想，培养孩子的数学直观思维。覆盖小学一至六年级核心知识点。
+          STEM 教育平台 · 数学动画教学 + 科学可视化 3D 交互实验
         </p>
 
         {/* 标题下分隔线 */}
@@ -47,10 +48,14 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 年级分区列表 */}
+      {/* 主内容区 */}
       <main className="flex flex-col gap-10 max-w-7xl mx-auto mt-1">
+        {/* 科学可视化板块 */}
+        <ScienceSection />
+
+        {/* 年级分区列表 */}
         {grades.map((grade, index) => (
-          <GradeSection key={grade.id} data={grade} sectionIndex={index} />
+          <GradeSection key={grade.id} data={grade} sectionIndex={index + 1} />
         ))}
       </main>
 
@@ -58,7 +63,7 @@ export default function Home() {
       <footer className="mt-16 text-center px-4">
         <div className="w-16 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-auto mb-4" />
         <p className="text-xs text-muted/50">
-          刘费曼的数学课 · 用动画让数学变简单
+          刘费曼的科学课 · 用动画让数学变简单
         </p>
       </footer>
 
@@ -86,7 +91,7 @@ export default function Home() {
       {/* noscript 降级内容：搜索引擎爬虫和禁用JS的浏览器能看到的内容 */}
       <noscript>
         <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'sans-serif', color: '#333' }}>
-          <h1>刘费曼的数学课</h1>
+          <h1>刘费曼的科学课</h1>
           <p>通过动画图形直观呈现数学思想，培养孩子的数学直觉与思维能力。覆盖小学一至六年级核心知识点，用图形而非文字讲解数学概念，让孩子真正理解数学背后的逻辑。</p>
           <h2>网站特色</h2>
           <p>全程动画图形演示，无文字无数字，用球、框、箭头等图形元素呈现数学概念。帮助孩子建立数学直观思维，而非死记硬背公式。</p>
