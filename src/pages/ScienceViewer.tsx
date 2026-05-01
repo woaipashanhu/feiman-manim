@@ -137,7 +137,7 @@ export default function ScienceViewer() {
 
         <iframe
           ref={iframeRef}
-          src={`/${scene.file}`}
+          src={`${import.meta.env.BASE_URL}${scene.file}`}
           className="w-full h-full border-0"
           style={{ minHeight: fullscreen ? '100vh' : 'calc(100vh - 52px)' }}
           allow="accelerometer; gyroscope"

@@ -28,7 +28,7 @@ export default function ScienceCard({ scene, index }: ScienceCardProps) {
       <div className="relative w-full aspect-video overflow-hidden bg-dark-600">
         {scene.cover ? (
           <img
-            src={`/${scene.cover}`}
+            src={`${import.meta.env.BASE_URL}${scene.cover}`}
             alt={scene.title}
             loading="lazy"
             className="w-full h-full object-cover"
