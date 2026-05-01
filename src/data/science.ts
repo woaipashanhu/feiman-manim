@@ -12,7 +12,7 @@ export interface ScienceScene {
 
 // ===== 在这里注册场景 =====
 export const scienceScenes: ScienceScene[] = [
-  { id: 'healthy-bowel-habit', title: '养成排便好习惯', description: '便便堵在肚子里会肚子疼，每天按时排便才能保持健康', cover: 'science/covers/healthy-bowel-habit.jpg', file: 'science/scenes/healthy-bowel-habit.html', category: 'health' },
+  { id: 'healthy-bowel-habit', title: '为什么便秘会肚子疼？', description: '食物在肠道里的旅行，了解便秘导致肚子疼的科学原理', cover: 'science/covers/healthy-bowel-habit.jpg', file: 'science/scenes/healthy-bowel-habit.html', category: 'health' },
 ];
 
 /** 根据 id 查找场景及上/下一个场景索引 */
