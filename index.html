@@ -2,17 +2,31 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0a0a0f" />
-    <title>Manim 数学动画课堂</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/feiman-manim/assets/index-ldZNoRwc.js"></script>
-    <link rel="stylesheet" crossorigin href="/feiman-manim/assets/index-Dzg8iut9.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0e1a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="费曼科学课" />
+    <meta name="description" content="刘费曼的数学课 - STEM教育平台，涵盖数学动画、社交训练、名画鉴赏、八卦掌绘本等板块" />
+    <meta property="og:title" content="刘费曼的数学课" />
+    <meta property="og:description" content="STEM教育平台 - 数学动画·社交训练·名画鉴赏·八卦掌绘本" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/feiman-manim/favicon.svg" />
+    <link rel="apple-touch-icon" href="/feiman-manim/icon-192.png" />
+    <title>刘费曼的数学课</title>
+    <script type="module" crossorigin src="/feiman-manim/assets/index-Bn2bDptY.js"></script>
+    <link rel="stylesheet" crossorigin href="/feiman-manim/assets/index-DS_e9NYu.css">
   <link rel="manifest" href="/feiman-manim/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/feiman-manim/registerSW.js"></script></head>
-  <body class="bg-dark-900 text-white font-sans">
+  <body>
+  <script>
+    // 清除可能残留的旧Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
+      });
+    }
+  </script>
+
     <div id="root"></div>
   </body>
 </html>
